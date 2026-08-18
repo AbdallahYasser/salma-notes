@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { api } from '../api.js'
+import PasswordModal from './PasswordModal.jsx'
 
 const FILTERS = [
   { key: 'open', label: 'Open' },
@@ -49,6 +50,7 @@ export default function Notes({ identity, names, onSwitchIdentity, onLogout }) {
   const [remindAt, setRemindAt] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [confirmingId, setConfirmingId] = useState(null)
+  const [showPasswordModal, setShowPasswordModal] = useState(false)
 
   const load = () => {
     api.listNotes().then((data) => setNotes(data.rows)).finally(() => setLoading(false))
@@ -115,9 +117,12 @@ export default function Notes({ identity, names, onSwitchIdentity, onLogout }) {
             <span className="avatar" style={{ background: colorFor(identity) }}>{identity.charAt(0).toUpperCase()}</span>
             {identity}
           </button>
+          <button className="icon-btn" onClick={() => setShowPasswordModal(true)} title="Change password">⚙</button>
           <button className="icon-btn" onClick={onLogout} title="Log out">⏻</button>
         </div>
       </header>
+
+      {showPasswordModal && <PasswordModal onClose={() => setShowPasswordModal(false)} />}
 
       <main className="content">
         <form className="composer" onSubmit={submit}>

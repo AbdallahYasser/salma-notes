@@ -16,7 +16,7 @@ from fastapi import Depends, FastAPI, HTTPException, Request, Response
 from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from src import auth, config, notes as notes_store
+from src import auth, config, notes as notes_store, settings as app_settings
 from src.db import apply_migrations
 from src.middleware import rate_limit
 
@@ -29,10 +29,14 @@ logger = logging.getLogger(__name__)
 app = FastAPI(docs_url=None, redoc_url=None)
 STATIC_DIR = Path(__file__).parent / "static"
 
+PASSWORD_HASH_KEY = "password_hash"
+
 
 @app.on_event("startup")
 async def _startup():
     await apply_migrations()
+    if await app_settings.get_setting(PASSWORD_HASH_KEY) is None:
+        await app_settings.set_setting(PASSWORD_HASH_KEY, auth.hash_password(config.APP_PASSWORD))
 
 
 # ---------------------------------------------------------------------------
@@ -56,7 +60,8 @@ async def login(request: Request, response: Response):
     rate_limit("login", request.client.host if request.client else "unknown", max_per_minute=10)
     body = await request.json()
     password = (body.get("password") or "").strip()
-    if password != config.APP_PASSWORD:
+    stored_hash = await app_settings.get_setting(PASSWORD_HASH_KEY)
+    if not stored_hash or not auth.verify_password(password, stored_hash):
         raise HTTPException(status_code=403, detail="Wrong password")
     token = auth.create_session_token()
     response.set_cookie(
@@ -74,6 +79,21 @@ async def logout(response: Response):
 
 @app.get("/api/auth/me")
 async def me(_: bool = Depends(auth.require_session)):
+    return {"ok": True}
+
+
+@app.put("/api/auth/password")
+async def change_password(request: Request, _: bool = Depends(auth.require_session)):
+    rate_limit("password-change", request.client.host if request.client else "unknown", max_per_minute=5)
+    body = await request.json()
+    current_password = (body.get("current_password") or "").strip()
+    new_password = (body.get("new_password") or "").strip()
+    if len(new_password) < 4:
+        raise HTTPException(status_code=400, detail="New password must be at least 4 characters")
+    stored_hash = await app_settings.get_setting(PASSWORD_HASH_KEY)
+    if not stored_hash or not auth.verify_password(current_password, stored_hash):
+        raise HTTPException(status_code=403, detail="Current password is wrong")
+    await app_settings.set_setting(PASSWORD_HASH_KEY, auth.hash_password(new_password))
     return {"ok": True}
 
 

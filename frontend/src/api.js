@@ -30,6 +30,10 @@ export const api = {
   me: () => request('/auth/me'),
   login: (password) => request('/auth/login', { method: 'POST', body: JSON.stringify({ password }) }),
   logout: () => request('/auth/logout', { method: 'POST' }),
+  changePassword: (currentPassword, newPassword) => request('/auth/password', {
+    method: 'PUT',
+    body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
+  }),
 
   listNotes: () => request('/notes'),
   createNote: (note) => request('/notes', { method: 'POST', body: JSON.stringify(note) }),

@@ -14,7 +14,8 @@ CREATE TABLE IF NOT EXISTS notes (
     remind_at TEXT,
     done INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
-    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    parent_id INTEGER REFERENCES notes(id)
 );
 CREATE INDEX IF NOT EXISTS idx_notes_created ON notes(created_at DESC);
 
@@ -29,6 +30,14 @@ async def apply_migrations() -> None:
     Path(config.DB_PATH).parent.mkdir(parents=True, exist_ok=True)
     async with aiosqlite.connect(config.DB_PATH) as db:
         await db.executescript(SCHEMA)
+        # `parent_id` was added after notes already existed in production -
+        # CREATE TABLE IF NOT EXISTS above doesn't retrofit existing tables,
+        # so add the column by hand for databases created before this.
+        cur = await db.execute("PRAGMA table_info(notes)")
+        columns = {row[1] for row in await cur.fetchall()}
+        if "parent_id" not in columns:
+            await db.execute("ALTER TABLE notes ADD COLUMN parent_id INTEGER REFERENCES notes(id)")
+        await db.execute("CREATE INDEX IF NOT EXISTS idx_notes_parent ON notes(parent_id)")
         await db.commit()
 
 

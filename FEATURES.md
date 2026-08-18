@@ -8,6 +8,28 @@ next). Newest entries on top.
 
 ---
 
+## 2026-08-18 — Threaded replies on notes
+
+**Business**: Any note can now become a back-and-forth conversation. Open
+a note and hit "Reply" — replies show nested under it, in order, each with
+their own name and timestamp, so a topic like "what time for dinner?" can
+be worked out in place instead of needing a separate note per message.
+Only top-level notes carry the note/reminder/done status; replies are just
+messages in that note's thread. Replies can be deleted individually.
+
+**Technical**: Added nullable `parent_id` column to `notes` (self-referencing
+FK), migrated in `db.py::apply_migrations()` via `ALTER TABLE` for
+already-existing databases (production had 2 rows before this). API:
+`POST /api/notes` accepts `parent_id`; server rejects replying to a reply
+(400) or to a nonexistent note (404), and forces `kind='note'`/`remind_at=null`
+on replies. Deleting a top-level note cascades to delete its replies
+(`notes.py::delete_note`). Frontend: extracted the note list item into
+`NoteThread.jsx` (was inline in `Notes.jsx`), which renders the parent note,
+its replies (grouped client-side via `repliesByParent` in `Notes.jsx`), and
+an inline reply composer. Filters/counts on the main list now only consider
+top-level notes. Shared `colorFor` helper moved to `colorFor.js` since both
+`Notes.jsx` and `NoteThread.jsx` need it now.
+
 ## 2026-08-18 — Show/hide toggle on password fields
 
 **Business**: Every password field (login, and all three fields in the

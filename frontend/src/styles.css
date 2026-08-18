@@ -455,6 +455,43 @@ input, textarea, button { font-family: inherit; }
 .badge-today { background: color-mix(in srgb, var(--today) 18%, transparent); color: var(--today); }
 .badge-upcoming { background: color-mix(in srgb, var(--upcoming) 18%, transparent); color: var(--upcoming); }
 
+/* ---------- Thread (replies) ---------- */
+
+.thread-list {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 12px 0 0 14px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.thread-item {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  border-left: 2px solid var(--border);
+  padding-left: 12px;
+}
+
+.avatar-xs { width: 24px; height: 24px; min-width: 24px; font-size: 11px; }
+
+.thread-body { flex: 1; min-width: 0; }
+.thread-body .note-content { font-size: 14px; }
+
+.thread-reply-btn { margin-top: 10px; padding: 4px 0; }
+
+.reply-composer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.reply-composer .input { padding: 8px 12px; font-size: 14px; }
+.reply-composer .btn { padding: 8px 14px; font-size: 13px; flex-shrink: 0; }
+
 .note-actions {
   display: flex;
   align-items: center;

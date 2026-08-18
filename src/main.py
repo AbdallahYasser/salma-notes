@@ -113,9 +113,21 @@ async def create_note(request: Request, _: bool = Depends(auth.require_session))
     if not content:
         raise HTTPException(status_code=400, detail="Content is required")
     author = (body.get("author") or "").strip() or (config.NAMES[0] if config.NAMES else "Someone")
-    kind = body.get("kind") if body.get("kind") in ("note", "reminder") else "note"
-    remind_at = body.get("remind_at") or None
-    note_id = await notes_store.create_note(author, content, kind, remind_at)
+
+    parent_id = body.get("parent_id")
+    if parent_id is not None:
+        parent = await notes_store.get_note(parent_id)
+        if parent is None:
+            raise HTTPException(status_code=404, detail="Note being replied to was not found")
+        if parent["parent_id"] is not None:
+            raise HTTPException(status_code=400, detail="Can't reply to a reply")
+        # Replies are plain messages in a thread, not their own reminder/task.
+        kind, remind_at = "note", None
+    else:
+        kind = body.get("kind") if body.get("kind") in ("note", "reminder") else "note"
+        remind_at = body.get("remind_at") or None
+
+    note_id = await notes_store.create_note(author, content, kind, remind_at, parent_id)
     return await notes_store.get_note(note_id)
 
 

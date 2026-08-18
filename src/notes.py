@@ -11,11 +11,11 @@ async def list_notes() -> list[dict]:
 
 
 async def create_note(author: str, content: str, kind: str = "note",
-                      remind_at: str | None = None) -> int:
+                      remind_at: str | None = None, parent_id: int | None = None) -> int:
     async with get_db() as db:
         cur = await db.execute(
-            "INSERT INTO notes (author, content, kind, remind_at) VALUES (?, ?, ?, ?)",
-            (author, content, kind, remind_at),
+            "INSERT INTO notes (author, content, kind, remind_at, parent_id) VALUES (?, ?, ?, ?, ?)",
+            (author, content, kind, remind_at, parent_id),
         )
         await db.commit()
         return cur.lastrowid
@@ -46,6 +46,7 @@ async def get_note(note_id: int) -> dict | None:
 
 async def delete_note(note_id: int) -> bool:
     async with get_db() as db:
+        await db.execute("DELETE FROM notes WHERE parent_id = ?", (note_id,))
         cur = await db.execute("DELETE FROM notes WHERE id = ?", (note_id,))
         await db.commit()
         return cur.rowcount > 0

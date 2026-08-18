@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { api } from '../api.js'
+import { colorFor } from '../colorFor.js'
 import PasswordModal from './PasswordModal.jsx'
+import NoteThread from './NoteThread.jsx'
 
 const FILTERS = [
   { key: 'open', label: 'Open' },
@@ -8,38 +10,6 @@ const FILTERS = [
   { key: 'all', label: 'All' },
   { key: 'done', label: 'Done' },
 ]
-
-const AVATAR_COLORS = ['#c9704f', '#5b7f6b', '#6d6ab8', '#b8894f', '#4f8fa8', '#a8567e']
-
-function colorFor(name) {
-  let hash = 0
-  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash)
-  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length]
-}
-
-function formatWhen(iso) {
-  const then = new Date(iso.replace(' ', 'T') + 'Z')
-  const diffMs = Date.now() - then.getTime()
-  const mins = Math.floor(diffMs / 60000)
-  if (mins < 1) return 'just now'
-  if (mins < 60) return `${mins}m ago`
-  const hours = Math.floor(mins / 60)
-  if (hours < 24) return `${hours}h ago`
-  const days = Math.floor(hours / 24)
-  if (days < 7) return `${days}d ago`
-  return then.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
-}
-
-function reminderStatus(remindAt) {
-  if (!remindAt) return null
-  const today = new Date(); today.setHours(0, 0, 0, 0)
-  const due = new Date(remindAt + 'T00:00:00')
-  const diffDays = Math.round((due - today) / 86400000)
-  if (diffDays < 0) return { label: 'Overdue', tone: 'overdue' }
-  if (diffDays === 0) return { label: 'Today', tone: 'today' }
-  if (diffDays === 1) return { label: 'Tomorrow', tone: 'upcoming' }
-  return { label: due.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }), tone: 'upcoming' }
-}
 
 export default function Notes({ identity, names, onSwitchIdentity, onLogout }) {
   const [notes, setNotes] = useState([])
@@ -49,7 +19,6 @@ export default function Notes({ identity, names, onSwitchIdentity, onLogout }) {
   const [kind, setKind] = useState('note')
   const [remindAt, setRemindAt] = useState('')
   const [submitting, setSubmitting] = useState(false)
-  const [confirmingId, setConfirmingId] = useState(null)
   const [showPasswordModal, setShowPasswordModal] = useState(false)
 
   const load = () => {
@@ -58,20 +27,33 @@ export default function Notes({ identity, names, onSwitchIdentity, onLogout }) {
 
   useEffect(() => { load() }, [])
 
+  const topLevelNotes = useMemo(() => notes.filter((n) => !n.parent_id), [notes])
+
+  const repliesByParent = useMemo(() => {
+    const map = {}
+    for (const n of notes) {
+      if (n.parent_id) (map[n.parent_id] ||= []).push(n)
+    }
+    for (const list of Object.values(map)) {
+      list.sort((a, b) => a.created_at.localeCompare(b.created_at))
+    }
+    return map
+  }, [notes])
+
   const counts = useMemo(() => ({
-    open: notes.filter((n) => !n.done).length,
-    reminders: notes.filter((n) => n.kind === 'reminder' && !n.done).length,
-    all: notes.length,
-    done: notes.filter((n) => n.done).length,
-  }), [notes])
+    open: topLevelNotes.filter((n) => !n.done).length,
+    reminders: topLevelNotes.filter((n) => n.kind === 'reminder' && !n.done).length,
+    all: topLevelNotes.length,
+    done: topLevelNotes.filter((n) => n.done).length,
+  }), [topLevelNotes])
 
   const visible = useMemo(() => {
-    let rows = notes
-    if (filter === 'open') rows = notes.filter((n) => !n.done)
-    else if (filter === 'reminders') rows = notes.filter((n) => n.kind === 'reminder' && !n.done)
-    else if (filter === 'done') rows = notes.filter((n) => n.done)
+    let rows = topLevelNotes
+    if (filter === 'open') rows = topLevelNotes.filter((n) => !n.done)
+    else if (filter === 'reminders') rows = topLevelNotes.filter((n) => n.kind === 'reminder' && !n.done)
+    else if (filter === 'done') rows = topLevelNotes.filter((n) => n.done)
     return rows
-  }, [notes, filter])
+  }, [topLevelNotes, filter])
 
   const submit = async (e) => {
     e.preventDefault()
@@ -102,7 +84,10 @@ export default function Notes({ identity, names, onSwitchIdentity, onLogout }) {
   const removeNote = async (id) => {
     await api.deleteNote(id)
     setNotes((prev) => prev.filter((n) => n.id !== id))
-    setConfirmingId(null)
+  }
+
+  const addReply = (reply) => {
+    setNotes((prev) => [...prev, reply])
   }
 
   return (
@@ -174,42 +159,17 @@ export default function Notes({ identity, names, onSwitchIdentity, onLogout }) {
           </div>
         ) : (
           <ul className="note-list">
-            {visible.map((note) => {
-              const status = note.kind === 'reminder' && !note.done ? reminderStatus(note.remind_at) : null
-              return (
-                <li key={note.id} className={note.done ? 'note-card note-card-done' : 'note-card'}>
-                  <span className="avatar avatar-sm" style={{ background: colorFor(note.author) }}>
-                    {note.author.charAt(0).toUpperCase()}
-                  </span>
-                  <div className="note-body">
-                    <div className="note-meta">
-                      <span className="note-author">{note.author}</span>
-                      <span className="note-dot">·</span>
-                      <span className="note-time">{formatWhen(note.created_at)}</span>
-                      {status && <span className={`badge badge-${status.tone}`}>{status.label}</span>}
-                    </div>
-                    <p className="note-content">{note.content}</p>
-                  </div>
-                  <div className="note-actions">
-                    <button
-                      className={note.done ? 'check-btn check-btn-done' : 'check-btn'}
-                      onClick={() => toggleDone(note)}
-                      title={note.done ? 'Mark as open' : 'Mark as done'}
-                    >
-                      {note.done ? '✓' : ''}
-                    </button>
-                    {confirmingId === note.id ? (
-                      <span className="confirm-row">
-                        <button className="text-btn text-btn-danger" onClick={() => removeNote(note.id)}>Delete</button>
-                        <button className="text-btn" onClick={() => setConfirmingId(null)}>Cancel</button>
-                      </span>
-                    ) : (
-                      <button className="icon-btn icon-btn-ghost" onClick={() => setConfirmingId(note.id)} title="Delete">✕</button>
-                    )}
-                  </div>
-                </li>
-              )
-            })}
+            {visible.map((note) => (
+              <NoteThread
+                key={note.id}
+                note={note}
+                replies={repliesByParent[note.id] || []}
+                identity={identity}
+                onToggleDone={toggleDone}
+                onDelete={removeNote}
+                onReplyAdded={addReply}
+              />
+            ))}
           </ul>
         )}
       </main>

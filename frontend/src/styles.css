@@ -167,6 +167,25 @@ input, textarea, button { font-family: inherit; }
 
 .input-date { width: auto; padding: 10px 12px; font-size: 14px; }
 
+.password-field { position: relative; }
+.password-field .input { padding-right: 60px; }
+
+.password-toggle {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  border: none;
+  background: transparent;
+  color: var(--ink-faint);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 6px 8px;
+}
+
+.password-toggle:hover { color: var(--ink-soft); }
+
 .btn {
   border: none;
   border-radius: 10px;

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { api } from '../api.js'
+import PasswordField from '../PasswordField.jsx'
 
 export default function Login({ onSuccess }) {
   const [password, setPassword] = useState('')
@@ -27,9 +28,7 @@ export default function Login({ onSuccess }) {
         <div className="auth-mark">✎</div>
         <h1 className="auth-title">Salma Notes</h1>
         <p className="auth-sub">A little place to leave things for each other.</p>
-        <input
-          className="input"
-          type="password"
+        <PasswordField
           placeholder="Password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}

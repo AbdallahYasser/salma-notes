@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { api } from '../api.js'
+import PasswordField from '../PasswordField.jsx'
 
 export default function PasswordModal({ onClose }) {
   const [currentPassword, setCurrentPassword] = useState('')
@@ -51,24 +52,18 @@ export default function PasswordModal({ onClose }) {
               the new one.
             </p>
             <div className="modal-fields">
-              <input
-                className="input"
-                type="password"
+              <PasswordField
                 placeholder="Current password"
                 value={currentPassword}
                 onChange={(e) => setCurrentPassword(e.target.value)}
                 autoFocus
               />
-              <input
-                className="input"
-                type="password"
+              <PasswordField
                 placeholder="New password"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
               />
-              <input
-                className="input"
-                type="password"
+              <PasswordField
                 placeholder="Confirm new password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}

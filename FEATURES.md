@@ -8,6 +8,17 @@ next). Newest entries on top.
 
 ---
 
+## 2026-08-18 — Show/hide toggle on password fields
+
+**Business**: Every password field (login, and all three fields in the
+change-password box) now has a "Show"/"Hide" button so you can check what
+you typed before submitting, instead of typing blind.
+
+**Technical**: New shared `PasswordField.jsx` component (input + toggle
+button, local `visible` state flips `type` between `password`/`text`).
+Replaces the raw `<input type="password">` in `Login.jsx` and
+`PasswordModal.jsx`. New `.password-field` / `.password-toggle` CSS rules.
+
 ## 2026-08-18 — Change password from inside the site
 
 **Business**: There's now a settings (⚙) button next to logout where either

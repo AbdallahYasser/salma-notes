@@ -1,0 +1,139 @@
+"""Salma Notes - a tiny shared notepad for two people.
+
+Auth: one shared password (env `APP_PASSWORD`) -> JWT session cookie, see
+src/auth.py. No per-user accounts - "who wrote it" is a free-text `author`
+field the client sends (chosen once from `config.NAMES`, remembered in
+localStorage). Deliberately minimal: this is meant to grow more pages later,
+not to become an ERP.
+"""
+import logging
+from pathlib import Path
+
+from dotenv import load_dotenv
+load_dotenv()
+
+from fastapi import Depends, FastAPI, HTTPException, Request, Response
+from fastapi.staticfiles import StaticFiles
+from starlette.exceptions import HTTPException as StarletteHTTPException
+
+from src import auth, config, notes as notes_store
+from src.db import apply_migrations
+from src.middleware import rate_limit
+
+logging.basicConfig(
+    level=getattr(logging, config.LOG_LEVEL.upper(), logging.INFO),
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+)
+logger = logging.getLogger(__name__)
+
+app = FastAPI(docs_url=None, redoc_url=None)
+STATIC_DIR = Path(__file__).parent / "static"
+
+
+@app.on_event("startup")
+async def _startup():
+    await apply_migrations()
+
+
+# ---------------------------------------------------------------------------
+# Health (unauthenticated)
+# ---------------------------------------------------------------------------
+@app.get("/api/health")
+async def health():
+    return {"ok": True}
+
+
+@app.get("/api/config")
+async def api_config():
+    return {"names": config.NAMES}
+
+
+# ---------------------------------------------------------------------------
+# Auth
+# ---------------------------------------------------------------------------
+@app.post("/api/auth/login")
+async def login(request: Request, response: Response):
+    rate_limit("login", request.client.host if request.client else "unknown", max_per_minute=10)
+    body = await request.json()
+    password = (body.get("password") or "").strip()
+    if password != config.APP_PASSWORD:
+        raise HTTPException(status_code=403, detail="Wrong password")
+    token = auth.create_session_token()
+    response.set_cookie(
+        key=auth.COOKIE_NAME, value=token, httponly=True, secure=True,
+        samesite="lax", max_age=config.SESSION_DAYS * 86400,
+    )
+    return {"ok": True}
+
+
+@app.post("/api/auth/logout")
+async def logout(response: Response):
+    response.delete_cookie(auth.COOKIE_NAME)
+    return {"ok": True}
+
+
+@app.get("/api/auth/me")
+async def me(_: bool = Depends(auth.require_session)):
+    return {"ok": True}
+
+
+# ---------------------------------------------------------------------------
+# Notes
+# ---------------------------------------------------------------------------
+@app.get("/api/notes")
+async def list_notes(_: bool = Depends(auth.require_session)):
+    return {"rows": await notes_store.list_notes()}
+
+
+@app.post("/api/notes", status_code=201)
+async def create_note(request: Request, _: bool = Depends(auth.require_session)):
+    rate_limit("write", request.client.host if request.client else "unknown")
+    body = await request.json()
+    content = (body.get("content") or "").strip()
+    if not content:
+        raise HTTPException(status_code=400, detail="Content is required")
+    author = (body.get("author") or "").strip() or (config.NAMES[0] if config.NAMES else "Someone")
+    kind = body.get("kind") if body.get("kind") in ("note", "reminder") else "note"
+    remind_at = body.get("remind_at") or None
+    note_id = await notes_store.create_note(author, content, kind, remind_at)
+    return await notes_store.get_note(note_id)
+
+
+@app.put("/api/notes/{note_id}")
+async def update_note(note_id: int, request: Request, _: bool = Depends(auth.require_session)):
+    rate_limit("write", request.client.host if request.client else "unknown")
+    body = await request.json()
+    row = await notes_store.update_note(note_id, **body)
+    if row is None:
+        raise HTTPException(status_code=404, detail="Not found")
+    return row
+
+
+@app.delete("/api/notes/{note_id}", status_code=204)
+async def delete_note(note_id: int, request: Request, _: bool = Depends(auth.require_session)):
+    rate_limit("write", request.client.host if request.client else "unknown")
+    if not await notes_store.delete_note(note_id):
+        raise HTTPException(status_code=404, detail="Not found")
+    return Response(status_code=204)
+
+
+# ---------------------------------------------------------------------------
+# Static file serving (Vite build output) - mounted LAST so /api/* above
+# always takes precedence. Falls back to index.html for unknown paths so
+# client-side routes survive a hard refresh (see perfume-erp for the same
+# pattern and the bug it fixes).
+# ---------------------------------------------------------------------------
+class NoCacheStaticFiles(StaticFiles):
+    async def get_response(self, path: str, scope):
+        try:
+            response = await super().get_response(path, scope)
+        except StarletteHTTPException as exc:
+            if exc.status_code != 404 or path.startswith("api/") or path == "api":
+                raise
+            response = await super().get_response("index.html", scope)
+        response.headers["Cache-Control"] = "no-store"
+        return response
+
+
+if STATIC_DIR.exists():
+    app.mount("/", NoCacheStaticFiles(directory=str(STATIC_DIR), html=True), name="static")

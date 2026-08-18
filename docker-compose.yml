@@ -1,0 +1,18 @@
+services:
+  salma-notes:
+    build: .
+    restart: unless-stopped
+    expose:
+      - "8080"
+    networks:
+      - coolify
+    volumes:
+      - salma-notes-data:/app/data
+
+volumes:
+  salma-notes-data:
+
+networks:
+  coolify:
+    external: true
+    name: coolify

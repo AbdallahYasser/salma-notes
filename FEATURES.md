@@ -8,6 +8,23 @@ next). Newest entries on top.
 
 ---
 
+## 2026-08-18 — Collapsible topics + search on the Links page
+
+**Business**: With a lot of topics this was getting hard to scan. Topics
+now start collapsed (just the name and a link count), so the page stays
+short no matter how many you add — click one to open it. A search box
+above the list filters by topic name *or* anything inside its links
+(title or URL), and automatically opens any topic that matches so you see
+the result immediately, no extra click needed.
+
+**Technical**: `Links.jsx` gained `query` and `expandedIds` (a `Set`)
+state. `isExpanded(id)` is `true` while searching (`query` non-empty) or
+when the id is in `expandedIds`, so manual expand/collapse is preserved
+once the search is cleared. Filtering (`matches()`) checks topic title,
+link title, and link url, case-insensitively, client-side — no new
+backend endpoint needed. New CSS: `.topic-search`, `.topic-toggle`,
+`.topic-caret`, `.topic-count`.
+
 ## 2026-08-18 — Links page (topics of titled, clickable links)
 
 **Business**: A brand new second page, "Links" (tab next to "Notes" in the

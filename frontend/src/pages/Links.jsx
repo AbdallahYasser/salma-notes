@@ -1,9 +1,17 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { api } from '../api.js'
+
+function matches(topic, query) {
+  const q = query.toLowerCase()
+  if (topic.title.toLowerCase().includes(q)) return true
+  return topic.links.some((l) => l.title.toLowerCase().includes(q) || l.url.toLowerCase().includes(q))
+}
 
 export default function Links() {
   const [topics, setTopics] = useState([])
   const [loading, setLoading] = useState(true)
+  const [query, setQuery] = useState('')
+  const [expandedIds, setExpandedIds] = useState(new Set())
   const [newTopicTitle, setNewTopicTitle] = useState('')
   const [addingTopic, setAddingTopic] = useState(false)
   const [confirmTopicId, setConfirmTopicId] = useState(null)
@@ -13,6 +21,24 @@ export default function Links() {
   useEffect(() => {
     api.listTopics().then((data) => setTopics(data.rows)).finally(() => setLoading(false))
   }, [])
+
+  const searching = query.trim().length > 0
+
+  const filteredTopics = useMemo(() => {
+    if (!searching) return topics
+    return topics.filter((t) => matches(t, query.trim()))
+  }, [topics, query, searching])
+
+  const isExpanded = (topicId) => searching || expandedIds.has(topicId)
+
+  const toggleExpand = (topicId) => {
+    setExpandedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(topicId)) next.delete(topicId)
+      else next.add(topicId)
+      return next
+    })
+  }
 
   const draftFor = (topicId) => linkDrafts[topicId] || { title: '', url: '' }
   const setDraft = (topicId, patch) =>
@@ -27,6 +53,7 @@ export default function Links() {
       const topic = await api.createTopic(title)
       setTopics((prev) => [topic, ...prev])
       setNewTopicTitle('')
+      setExpandedIds((prev) => new Set(prev).add(topic.id))
     } finally {
       setAddingTopic(false)
     }
@@ -71,6 +98,15 @@ export default function Links() {
         </div>
       </form>
 
+      {topics.length > 0 && (
+        <input
+          className="input topic-search"
+          placeholder="Search topics and links…"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+        />
+      )}
+
       {loading ? (
         <div className="empty-state">Loading…</div>
       ) : topics.length === 0 ? (
@@ -78,62 +114,77 @@ export default function Links() {
           <p>No topics yet.</p>
           <p className="empty-sub">Add one above to start collecting links.</p>
         </div>
+      ) : filteredTopics.length === 0 ? (
+        <div className="empty-state">
+          <p>No matches for “{query.trim()}”.</p>
+        </div>
       ) : (
         <ul className="topic-list">
-          {topics.map((topic) => (
-            <li key={topic.id} className="topic-card">
-              <div className="topic-header">
-                <h3 className="topic-title">{topic.title}</h3>
-                {confirmTopicId === topic.id ? (
-                  <span className="confirm-row">
-                    <button className="text-btn text-btn-danger" onClick={() => removeTopic(topic.id)}>Delete</button>
-                    <button className="text-btn" onClick={() => setConfirmTopicId(null)}>Cancel</button>
-                  </span>
-                ) : (
-                  <button className="icon-btn icon-btn-ghost" onClick={() => setConfirmTopicId(topic.id)} title="Delete topic">✕</button>
-                )}
-              </div>
-
-              {topic.links.length > 0 && (
-                <ul className="link-list">
-                  {topic.links.map((link) => (
-                    <li key={link.id} className="link-item">
-                      <a className="link-anchor" href={link.url} target="_blank" rel="noopener noreferrer">
-                        {link.title}
-                      </a>
-                      <button className="icon-btn icon-btn-ghost" onClick={() => removeLink(topic.id, link.id)} title="Delete link">✕</button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-
-              {addingLinkTopicId === topic.id ? (
-                <form className="link-composer" onSubmit={(e) => addLink(e, topic.id)}>
-                  <input
-                    className="input"
-                    placeholder="Link title"
-                    value={draftFor(topic.id).title}
-                    onChange={(e) => setDraft(topic.id, { title: e.target.value })}
-                    autoFocus
-                  />
-                  <input
-                    className="input"
-                    placeholder="https://…"
-                    value={draftFor(topic.id).url}
-                    onChange={(e) => setDraft(topic.id, { url: e.target.value })}
-                  />
-                  <button className="btn btn-primary" type="submit" disabled={!draftFor(topic.id).title.trim() || !draftFor(topic.id).url.trim()}>
-                    Add
+          {filteredTopics.map((topic) => {
+            const expanded = isExpanded(topic.id)
+            return (
+              <li key={topic.id} className="topic-card">
+                <div className="topic-header">
+                  <button className="topic-toggle" onClick={() => toggleExpand(topic.id)}>
+                    <span className={expanded ? 'topic-caret topic-caret-open' : 'topic-caret'}>▸</span>
+                    <h3 className="topic-title">{topic.title}</h3>
+                    <span className="topic-count">{topic.links.length}</span>
                   </button>
-                  <button type="button" className="text-btn" onClick={() => setAddingLinkTopicId(null)}>Cancel</button>
-                </form>
-              ) : (
-                <button className="text-btn thread-reply-btn" onClick={() => setAddingLinkTopicId(topic.id)}>
-                  + Add link
-                </button>
-              )}
-            </li>
-          ))}
+                  {confirmTopicId === topic.id ? (
+                    <span className="confirm-row">
+                      <button className="text-btn text-btn-danger" onClick={() => removeTopic(topic.id)}>Delete</button>
+                      <button className="text-btn" onClick={() => setConfirmTopicId(null)}>Cancel</button>
+                    </span>
+                  ) : (
+                    <button className="icon-btn icon-btn-ghost" onClick={() => setConfirmTopicId(topic.id)} title="Delete topic">✕</button>
+                  )}
+                </div>
+
+                {expanded && (
+                  <>
+                    {topic.links.length > 0 && (
+                      <ul className="link-list">
+                        {topic.links.map((link) => (
+                          <li key={link.id} className="link-item">
+                            <a className="link-anchor" href={link.url} target="_blank" rel="noopener noreferrer">
+                              {link.title}
+                            </a>
+                            <button className="icon-btn icon-btn-ghost" onClick={() => removeLink(topic.id, link.id)} title="Delete link">✕</button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+
+                    {addingLinkTopicId === topic.id ? (
+                      <form className="link-composer" onSubmit={(e) => addLink(e, topic.id)}>
+                        <input
+                          className="input"
+                          placeholder="Link title"
+                          value={draftFor(topic.id).title}
+                          onChange={(e) => setDraft(topic.id, { title: e.target.value })}
+                          autoFocus
+                        />
+                        <input
+                          className="input"
+                          placeholder="https://…"
+                          value={draftFor(topic.id).url}
+                          onChange={(e) => setDraft(topic.id, { url: e.target.value })}
+                        />
+                        <button className="btn btn-primary" type="submit" disabled={!draftFor(topic.id).title.trim() || !draftFor(topic.id).url.trim()}>
+                          Add
+                        </button>
+                        <button type="button" className="text-btn" onClick={() => setAddingLinkTopicId(null)}>Cancel</button>
+                      </form>
+                    ) : (
+                      <button className="text-btn thread-reply-btn" onClick={() => setAddingLinkTopicId(topic.id)}>
+                        + Add link
+                      </button>
+                    )}
+                  </>
+                )}
+              </li>
+            )
+          })}
         </ul>
       )}
     </>

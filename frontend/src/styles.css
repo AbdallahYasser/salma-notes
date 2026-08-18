@@ -513,6 +513,8 @@ input, textarea, button { font-family: inherit; }
 
 /* ---------- Topics & links ---------- */
 
+.topic-search { margin-bottom: 16px; }
+
 .topic-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
 
 .topic-card {
@@ -529,11 +531,48 @@ input, textarea, button { font-family: inherit; }
   gap: 10px;
 }
 
+.topic-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 0;
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+}
+
+.topic-caret {
+  font-size: 11px;
+  color: var(--ink-faint);
+  transition: transform 0.12s ease;
+  flex-shrink: 0;
+}
+
+.topic-caret-open { transform: rotate(90deg); }
+
 .topic-title {
   font-family: 'Fraunces', Georgia, serif;
   font-size: 17px;
   font-weight: 500;
   margin: 0;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.topic-count {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink-faint);
+  background: var(--bg-soft);
+  border-radius: 999px;
+  padding: 1px 8px;
+  flex-shrink: 0;
 }
 
 .link-list {

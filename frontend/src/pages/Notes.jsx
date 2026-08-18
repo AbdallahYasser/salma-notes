@@ -1,7 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
 import { api } from '../api.js'
-import { colorFor } from '../colorFor.js'
-import PasswordModal from './PasswordModal.jsx'
 import NoteThread from './NoteThread.jsx'
 
 const FILTERS = [
@@ -11,7 +9,7 @@ const FILTERS = [
   { key: 'done', label: 'Done' },
 ]
 
-export default function Notes({ identity, names, onSwitchIdentity, onLogout }) {
+export default function Notes({ identity, names }) {
   const [notes, setNotes] = useState([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState('open')
@@ -19,7 +17,6 @@ export default function Notes({ identity, names, onSwitchIdentity, onLogout }) {
   const [kind, setKind] = useState('note')
   const [remindAt, setRemindAt] = useState('')
   const [submitting, setSubmitting] = useState(false)
-  const [showPasswordModal, setShowPasswordModal] = useState(false)
 
   const load = () => {
     api.listNotes().then((data) => setNotes(data.rows)).finally(() => setLoading(false))
@@ -91,26 +88,8 @@ export default function Notes({ identity, names, onSwitchIdentity, onLogout }) {
   }
 
   return (
-    <div className="app-shell">
-      <header className="topbar">
-        <div className="brand">
-          <span className="brand-mark">✎</span>
-          <span className="brand-name">Salma Notes</span>
-        </div>
-        <div className="topbar-actions">
-          <button className="identity-pill" onClick={onSwitchIdentity} title="Switch who you are">
-            <span className="avatar" style={{ background: colorFor(identity) }}>{identity.charAt(0).toUpperCase()}</span>
-            {identity}
-          </button>
-          <button className="icon-btn" onClick={() => setShowPasswordModal(true)} title="Change password">⚙</button>
-          <button className="icon-btn" onClick={onLogout} title="Log out">⏻</button>
-        </div>
-      </header>
-
-      {showPasswordModal && <PasswordModal onClose={() => setShowPasswordModal(false)} />}
-
-      <main className="content">
-        <form className="composer" onSubmit={submit}>
+    <>
+      <form className="composer" onSubmit={submit}>
           <textarea
             className="composer-input"
             placeholder={`Leave something for ${names.find((n) => n !== identity) || 'them'}…`}
@@ -172,7 +151,6 @@ export default function Notes({ identity, names, onSwitchIdentity, onLogout }) {
             ))}
           </ul>
         )}
-      </main>
-    </div>
+    </>
   )
 }

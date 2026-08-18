@@ -16,7 +16,7 @@ from fastapi import Depends, FastAPI, HTTPException, Request, Response
 from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from src import auth, config, notes as notes_store, settings as app_settings
+from src import auth, config, links as links_store, notes as notes_store, settings as app_settings
 from src.db import apply_migrations
 from src.middleware import rate_limit
 
@@ -145,6 +145,63 @@ async def update_note(note_id: int, request: Request, _: bool = Depends(auth.req
 async def delete_note(note_id: int, request: Request, _: bool = Depends(auth.require_session)):
     rate_limit("write", request.client.host if request.client else "unknown")
     if not await notes_store.delete_note(note_id):
+        raise HTTPException(status_code=404, detail="Not found")
+    return Response(status_code=204)
+
+
+# ---------------------------------------------------------------------------
+# Links (topics, each holding a list of titled links)
+# ---------------------------------------------------------------------------
+def _normalize_url(url: str) -> str:
+    if not url.lower().startswith(("http://", "https://")):
+        return f"https://{url}"
+    return url
+
+
+@app.get("/api/topics")
+async def list_topics(_: bool = Depends(auth.require_session)):
+    return {"rows": await links_store.list_topics_with_links()}
+
+
+@app.post("/api/topics", status_code=201)
+async def create_topic(request: Request, _: bool = Depends(auth.require_session)):
+    rate_limit("write", request.client.host if request.client else "unknown")
+    body = await request.json()
+    title = (body.get("title") or "").strip()
+    if not title:
+        raise HTTPException(status_code=400, detail="Topic title is required")
+    topic_id = await links_store.create_topic(title)
+    topic = await links_store.get_topic(topic_id)
+    topic["links"] = []
+    return topic
+
+
+@app.delete("/api/topics/{topic_id}", status_code=204)
+async def delete_topic(topic_id: int, request: Request, _: bool = Depends(auth.require_session)):
+    rate_limit("write", request.client.host if request.client else "unknown")
+    if not await links_store.delete_topic(topic_id):
+        raise HTTPException(status_code=404, detail="Not found")
+    return Response(status_code=204)
+
+
+@app.post("/api/topics/{topic_id}/links", status_code=201)
+async def create_link(topic_id: int, request: Request, _: bool = Depends(auth.require_session)):
+    rate_limit("write", request.client.host if request.client else "unknown")
+    if await links_store.get_topic(topic_id) is None:
+        raise HTTPException(status_code=404, detail="Topic not found")
+    body = await request.json()
+    title = (body.get("title") or "").strip()
+    url = (body.get("url") or "").strip()
+    if not title or not url:
+        raise HTTPException(status_code=400, detail="Link title and URL are required")
+    link_id = await links_store.create_link(topic_id, title, _normalize_url(url))
+    return await links_store.get_link(link_id)
+
+
+@app.delete("/api/links/{link_id}", status_code=204)
+async def delete_link(link_id: int, request: Request, _: bool = Depends(auth.require_session)):
+    rate_limit("write", request.client.host if request.client else "unknown")
+    if not await links_store.delete_link(link_id):
         raise HTTPException(status_code=404, detail="Not found")
     return Response(status_code=204)
 

@@ -39,4 +39,12 @@ export const api = {
   createNote: (note) => request('/notes', { method: 'POST', body: JSON.stringify(note) }),
   updateNote: (id, patch) => request(`/notes/${id}`, { method: 'PUT', body: JSON.stringify(patch) }),
   deleteNote: (id) => request(`/notes/${id}`, { method: 'DELETE' }),
+
+  listTopics: () => request('/topics'),
+  createTopic: (title) => request('/topics', { method: 'POST', body: JSON.stringify({ title }) }),
+  deleteTopic: (id) => request(`/topics/${id}`, { method: 'DELETE' }),
+  createLink: (topicId, title, url) => request(`/topics/${topicId}/links`, {
+    method: 'POST', body: JSON.stringify({ title, url }),
+  }),
+  deleteLink: (id) => request(`/links/${id}`, { method: 'DELETE' }),
 }

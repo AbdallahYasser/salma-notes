@@ -8,6 +8,27 @@ next). Newest entries on top.
 
 ---
 
+## 2026-08-18 — Links page (topics of titled, clickable links)
+
+**Business**: A brand new second page, "Links" (tab next to "Notes" in the
+top bar) — the first of the "more pages later" the site was meant to grow
+into. Create a topic (e.g. "Wedding planning"), then add as many links to
+it as you want, each with its own title so it's clear what it is. Links
+are clickable, open in a new tab, and you can have as many topics as you
+need, each with its own list.
+
+**Technical**: Two new tables, `topics` and `links` (`links.topic_id` FK,
+cascade-deleted with the topic in `links.py::delete_topic`) — brand new
+tables so no `ALTER TABLE` migration was needed, unlike the `notes.parent_id`
+change. New endpoints: `GET/POST /api/topics`, `DELETE /api/topics/{id}`,
+`POST /api/topics/{id}/links`, `DELETE /api/links/{id}`. URLs typed without
+a scheme get `https://` prepended server-side (`main.py::_normalize_url`)
+so they're always genuinely clickable. Frontend: since there are now two
+real pages, pulled the shared top bar out of `Notes.jsx` into a new
+`Layout.jsx` (rendered via `react-router-dom`'s nested routes + `<Outlet />`)
+with a `Notes`/`Links` nav pill; `Notes.jsx` now renders only its own
+content. New `Links.jsx` page and matching `.topic-*`/`.link-*` CSS.
+
 ## 2026-08-18 — Threaded replies on notes
 
 **Business**: Any note can now become a back-and-forth conversation. Open

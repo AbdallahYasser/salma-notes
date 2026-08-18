@@ -661,11 +661,24 @@ input, textarea, button { font-family: inherit; }
 
 .empty-sub { font-size: 14px; margin-top: 4px; }
 
+@media (max-width: 600px) {
+  /* Three groups (brand, page nav, identity/settings/logout) don't fit at
+     full size once the bar gets this narrow - confirmed by the "Salma
+     Notes" wordmark itself wrapping onto two lines around ~550px wide.
+     Drop text labels, keep icons/avatars, so everything stays on one row. */
+  .topbar { flex-wrap: wrap; row-gap: 10px; padding: 12px 14px; }
+  .brand-name { display: none; }
+  .identity-name { display: none; }
+  .identity-pill { padding: 3px; gap: 0; }
+  .page-nav-link { padding: 6px 12px; }
+}
+
 @media (max-width: 480px) {
   .content { padding: 18px 14px 80px; }
   .composer-submit { width: 100%; margin-left: 0; order: 3; }
-  .topbar { flex-wrap: wrap; row-gap: 10px; }
-  .page-nav { order: 3; width: 100%; justify-content: center; }
+  .note-meta { flex-wrap: wrap; }
+  .reply-composer { flex-wrap: wrap; }
+  .reply-composer .input { min-width: 0; }
 }
 
 /* ---------- Modal ---------- */

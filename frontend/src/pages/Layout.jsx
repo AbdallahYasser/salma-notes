@@ -22,7 +22,7 @@ export default function Layout({ identity, onSwitchIdentity, onLogout }) {
         <div className="topbar-actions">
           <button className="identity-pill" onClick={onSwitchIdentity} title="Switch who you are">
             <span className="avatar" style={{ background: colorFor(identity) }}>{identity.charAt(0).toUpperCase()}</span>
-            {identity}
+            <span className="identity-name">{identity}</span>
           </button>
           <button className="icon-btn" onClick={() => setShowPasswordModal(true)} title="Change password">⚙</button>
           <button className="icon-btn" onClick={onLogout} title="Log out">⏻</button>

@@ -8,6 +8,32 @@ next). Newest entries on top.
 
 ---
 
+## 2026-08-18 — Mobile top bar fix (iPhone 11 and similar widths)
+
+**Business**: On a phone-width screen the top bar (logo + Notes/Links tabs
++ your name + settings + logout) was tight enough to wrap awkwardly - the
+"Salma Notes" wordmark could break onto two lines and crowd the buttons
+next to it. Below about 600px wide, the bar now shows just the icon (no
+wordmark) and just your avatar (no name text) for those two elements,
+keeping everything on one tidy row on a real phone.
+
+**Technical**: Confirmed the overflow risk by computing actual widths
+against the CSS (brand + page-nav + identity-pill etc. summed to ~510-520px
+of content against ~515-555px of available bar width - a wrong assumption
+away from wrapping) rather than guessing, since this environment's browser
+automation couldn't be resized below ~555px CSS width to visually test the
+true 414px iPhone 11 viewport directly. Verified the fix live at the 555px
+floor (single row, no wrap) and by calculation at 414px (comfortable
+~85px margin after compacting). Wrapped the identity name in a new
+`<span className="identity-name">` in `Layout.jsx` so it can be targeted
+by CSS; new `@media (max-width: 600px)` block hides `.brand-name` and
+`.identity-name`, shrinks `.identity-pill` padding, and tightens
+`.page-nav-link` padding. Also added small defensive fixes at the existing
+480px breakpoint: `.note-meta` and `.reply-composer` gain `flex-wrap: wrap`,
+and `.reply-composer .input` gets `min-width: 0` so it isn't blocked from
+shrinking by its default intrinsic width when nested inside a narrow
+reply thread.
+
 ## 2026-08-18 — Collapsible topics + search on the Links page
 
 **Business**: With a lot of topics this was getting hard to scan. Topics

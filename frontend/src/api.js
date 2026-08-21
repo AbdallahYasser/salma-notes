@@ -40,9 +40,18 @@ export const api = {
   updateNote: (id, patch) => request(`/notes/${id}`, { method: 'PUT', body: JSON.stringify(patch) }),
   deleteNote: (id) => request(`/notes/${id}`, { method: 'DELETE' }),
 
+  listCategories: () => request('/categories'),
+  createCategory: (title) => request('/categories', { method: 'POST', body: JSON.stringify({ title }) }),
+  updateCategory: (id, title) => request(`/categories/${id}`, { method: 'PUT', body: JSON.stringify({ title }) }),
+  deleteCategory: (id) => request(`/categories/${id}`, { method: 'DELETE' }),
+
   listTopics: () => request('/topics'),
-  createTopic: (title) => request('/topics', { method: 'POST', body: JSON.stringify({ title }) }),
-  updateTopic: (id, title) => request(`/topics/${id}`, { method: 'PUT', body: JSON.stringify({ title }) }),
+  createTopic: (title, categoryId) => request('/topics', {
+    method: 'POST', body: JSON.stringify({ title, category_id: categoryId ?? null }),
+  }),
+  updateTopic: (id, title, categoryId) => request(`/topics/${id}`, {
+    method: 'PUT', body: JSON.stringify({ title, category_id: categoryId ?? null }),
+  }),
   deleteTopic: (id) => request(`/topics/${id}`, { method: 'DELETE' }),
   createLink: (topicId, title, url) => request(`/topics/${topicId}/links`, {
     method: 'POST', body: JSON.stringify({ title, url }),

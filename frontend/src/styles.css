@@ -654,6 +654,81 @@ input, textarea, button { font-family: inherit; }
 .topic-edit-composer .input { padding: 6px 10px; font-size: 15px; }
 .topic-edit-composer .btn { padding: 6px 14px; font-size: 13px; flex-shrink: 0; }
 
+.topic-category-select { width: auto; flex-shrink: 0; }
+
+/* ---------- Categories ---------- */
+
+.category-list { list-style: none; margin: 0 0 16px; padding: 0; display: flex; flex-direction: column; gap: 14px; }
+
+.category-card {
+  background: var(--bg-soft);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 16px;
+}
+
+.uncategorized-card { background: transparent; border-style: dashed; }
+
+.category-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.category-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 0;
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+}
+
+.category-caret {
+  font-size: 11px;
+  color: var(--ink-faint);
+  transition: transform 0.12s ease;
+  flex-shrink: 0;
+}
+
+.category-caret-open { transform: rotate(90deg); }
+
+.category-title {
+  font-family: 'Fraunces', Georgia, serif;
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.category-count {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink-faint);
+  background: var(--surface);
+  border-radius: 999px;
+  padding: 1px 8px;
+  flex-shrink: 0;
+}
+
+.category-edit-composer { display: flex; align-items: center; gap: 8px; flex: 1; }
+.category-edit-composer .input { padding: 6px 10px; font-size: 15px; }
+.category-edit-composer .btn { padding: 6px 14px; font-size: 13px; flex-shrink: 0; }
+
+.category-delete-note { font-size: 12px; color: var(--ink-faint); margin: 6px 0 0; }
+
+.category-topics { margin-top: 12px; }
+.category-topics .topic-list { margin: 0; }
+
 .text-btn {
   border: none;
   background: transparent;
@@ -694,6 +769,8 @@ input, textarea, button { font-family: inherit; }
   .reply-composer .input { min-width: 0; }
   .topic-edit-composer { flex-wrap: wrap; }
   .topic-edit-composer .input { min-width: 0; width: 100%; }
+  .category-edit-composer { flex-wrap: wrap; }
+  .category-edit-composer .input { min-width: 0; width: 100%; }
 }
 
 /* ---------- Modal ---------- */

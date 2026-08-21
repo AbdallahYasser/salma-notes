@@ -16,9 +16,46 @@ async def list_topics_with_links() -> list[dict]:
     return topics
 
 
-async def create_topic(title: str) -> int:
+async def list_categories() -> list[dict]:
     async with get_db() as db:
-        cur = await db.execute("INSERT INTO topics (title) VALUES (?)", (title,))
+        cur = await db.execute("SELECT * FROM categories ORDER BY created_at DESC")
+        return [dict(r) for r in await cur.fetchall()]
+
+
+async def create_category(title: str) -> int:
+    async with get_db() as db:
+        cur = await db.execute("INSERT INTO categories (title) VALUES (?)", (title,))
+        await db.commit()
+        return cur.lastrowid
+
+
+async def get_category(category_id: int) -> dict | None:
+    async with get_db() as db:
+        cur = await db.execute("SELECT * FROM categories WHERE id = ?", (category_id,))
+        row = await cur.fetchone()
+        return dict(row) if row else None
+
+
+async def update_category(category_id: int, title: str) -> dict | None:
+    async with get_db() as db:
+        await db.execute("UPDATE categories SET title = ? WHERE id = ?", (title, category_id))
+        await db.commit()
+    return await get_category(category_id)
+
+
+async def delete_category(category_id: int) -> bool:
+    async with get_db() as db:
+        await db.execute("UPDATE topics SET category_id = NULL WHERE category_id = ?", (category_id,))
+        cur = await db.execute("DELETE FROM categories WHERE id = ?", (category_id,))
+        await db.commit()
+        return cur.rowcount > 0
+
+
+async def create_topic(title: str, category_id: int | None = None) -> int:
+    async with get_db() as db:
+        cur = await db.execute(
+            "INSERT INTO topics (title, category_id) VALUES (?, ?)", (title, category_id),
+        )
         await db.commit()
         return cur.lastrowid
 
@@ -30,9 +67,11 @@ async def get_topic(topic_id: int) -> dict | None:
         return dict(row) if row else None
 
 
-async def update_topic(topic_id: int, title: str) -> dict | None:
+async def update_topic(topic_id: int, title: str, category_id: int | None = None) -> dict | None:
     async with get_db() as db:
-        await db.execute("UPDATE topics SET title = ? WHERE id = ?", (title, topic_id))
+        await db.execute(
+            "UPDATE topics SET title = ?, category_id = ? WHERE id = ?", (title, category_id, topic_id),
+        )
         await db.commit()
     return await get_topic(topic_id)
 

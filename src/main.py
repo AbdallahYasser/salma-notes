@@ -158,6 +158,43 @@ def _normalize_url(url: str) -> str:
     return url
 
 
+@app.get("/api/categories")
+async def list_categories(_: bool = Depends(auth.require_session)):
+    return {"rows": await links_store.list_categories()}
+
+
+@app.post("/api/categories", status_code=201)
+async def create_category(request: Request, _: bool = Depends(auth.require_session)):
+    rate_limit("write", request.client.host if request.client else "unknown")
+    body = await request.json()
+    title = (body.get("title") or "").strip()
+    if not title:
+        raise HTTPException(status_code=400, detail="Category title is required")
+    category_id = await links_store.create_category(title)
+    return await links_store.get_category(category_id)
+
+
+@app.put("/api/categories/{category_id}")
+async def update_category(category_id: int, request: Request, _: bool = Depends(auth.require_session)):
+    rate_limit("write", request.client.host if request.client else "unknown")
+    body = await request.json()
+    title = (body.get("title") or "").strip()
+    if not title:
+        raise HTTPException(status_code=400, detail="Category title is required")
+    category = await links_store.update_category(category_id, title)
+    if category is None:
+        raise HTTPException(status_code=404, detail="Not found")
+    return category
+
+
+@app.delete("/api/categories/{category_id}", status_code=204)
+async def delete_category(category_id: int, request: Request, _: bool = Depends(auth.require_session)):
+    rate_limit("write", request.client.host if request.client else "unknown")
+    if not await links_store.delete_category(category_id):
+        raise HTTPException(status_code=404, detail="Not found")
+    return Response(status_code=204)
+
+
 @app.get("/api/topics")
 async def list_topics(_: bool = Depends(auth.require_session)):
     return {"rows": await links_store.list_topics_with_links()}
@@ -170,7 +207,10 @@ async def create_topic(request: Request, _: bool = Depends(auth.require_session)
     title = (body.get("title") or "").strip()
     if not title:
         raise HTTPException(status_code=400, detail="Topic title is required")
-    topic_id = await links_store.create_topic(title)
+    category_id = body.get("category_id")
+    if category_id is not None and await links_store.get_category(category_id) is None:
+        raise HTTPException(status_code=400, detail="Category not found")
+    topic_id = await links_store.create_topic(title, category_id)
     topic = await links_store.get_topic(topic_id)
     topic["links"] = []
     return topic
@@ -183,7 +223,10 @@ async def update_topic(topic_id: int, request: Request, _: bool = Depends(auth.r
     title = (body.get("title") or "").strip()
     if not title:
         raise HTTPException(status_code=400, detail="Topic title is required")
-    topic = await links_store.update_topic(topic_id, title)
+    category_id = body.get("category_id")
+    if category_id is not None and await links_store.get_category(category_id) is None:
+        raise HTTPException(status_code=400, detail="Category not found")
+    topic = await links_store.update_topic(topic_id, title, category_id)
     if topic is None:
         raise HTTPException(status_code=404, detail="Not found")
     return topic

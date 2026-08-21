@@ -24,6 +24,13 @@ CREATE TABLE IF NOT EXISTS settings (
     value TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS categories (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    title TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 CREATE TABLE IF NOT EXISTS topics (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     title TEXT NOT NULL,
@@ -55,6 +62,15 @@ async def apply_migrations() -> None:
         if "parent_id" not in columns:
             await db.execute("ALTER TABLE notes ADD COLUMN parent_id INTEGER REFERENCES notes(id)")
         await db.execute("CREATE INDEX IF NOT EXISTS idx_notes_parent ON notes(parent_id)")
+
+        # `category_id` was added after topics already existed in production -
+        # same retrofit as `parent_id` above.
+        cur = await db.execute("PRAGMA table_info(topics)")
+        columns = {row[1] for row in await cur.fetchall()}
+        if "category_id" not in columns:
+            await db.execute("ALTER TABLE topics ADD COLUMN category_id INTEGER REFERENCES categories(id)")
+        await db.execute("CREATE INDEX IF NOT EXISTS idx_topics_category ON topics(category_id)")
+
         await db.commit()
 
 

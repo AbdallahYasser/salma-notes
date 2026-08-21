@@ -8,6 +8,39 @@ next). Newest entries on top.
 
 ---
 
+## 2026-08-22 — Group topics into categories on the Links page
+
+**Business**: Topics on the Links page can now be grouped under a named
+category, like "Kitchen" holding both an "Appliances" and a "Recipes to
+try" topic. Categories are optional - any topic not put in one just shows
+under a plain "Uncategorized" section, so nothing already there needed to
+change. Deleting a category never deletes its topics or links - they just
+lose the grouping and fall back to Uncategorized.
+
+**Technical**: New `categories` table (`src/db.py`), plus a nullable
+`topics.category_id` column added via the same manual `ALTER TABLE` retrofit
+already used for `notes.parent_id`. `src/links.py` gained
+`list_categories`/`create_category`/`get_category`/`update_category`/
+`delete_category` (the last detaches topics via `UPDATE topics SET
+category_id = NULL` rather than cascading, unlike `delete_topic`); `create_topic`/
+`update_topic` gained an optional `category_id` param. New routes in
+`src/main.py`: `GET/POST /api/categories`, `PUT/DELETE
+/api/categories/{id}`; `POST/PUT /api/topics` now accept `category_id` in
+the body, validated against the categories table. Frontend: `api.js` gained
+matching category functions; `Links.jsx` derives a `topicsByCategory` map
+client-side (mirroring the `topLevelNotes`/`repliesByParent` pattern in
+`Notes.jsx`) and renders a new outer `.category-list` of `.category-card`s
+wrapping the existing `.topic-list` markup, with a virtual "Uncategorized"
+bucket always rendered last. Search now composes across both levels: a
+category-title match shows all its topics, otherwise it drills down to
+just the matching topics. Category assignment uses a plain `<select>` in
+the add-topic composer and the topic edit form (no drag-and-drop
+precedent existed to reuse). New CSS in `styles.css` mirroring the
+`.topic-*` classes. Verified end-to-end against local dev servers in a
+real browser (login → create category → create/move topics → add a link →
+rename category → delete category and confirm topics survive uncategorized
+→ search at both levels → reload and confirm persistence).
+
 ## 2026-08-22 — Edit notes, reminders, replies, topics, and links
 
 **Business**: Everything you write can now be corrected instead of

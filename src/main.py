@@ -176,6 +176,19 @@ async def create_topic(request: Request, _: bool = Depends(auth.require_session)
     return topic
 
 
+@app.put("/api/topics/{topic_id}")
+async def update_topic(topic_id: int, request: Request, _: bool = Depends(auth.require_session)):
+    rate_limit("write", request.client.host if request.client else "unknown")
+    body = await request.json()
+    title = (body.get("title") or "").strip()
+    if not title:
+        raise HTTPException(status_code=400, detail="Topic title is required")
+    topic = await links_store.update_topic(topic_id, title)
+    if topic is None:
+        raise HTTPException(status_code=404, detail="Not found")
+    return topic
+
+
 @app.delete("/api/topics/{topic_id}", status_code=204)
 async def delete_topic(topic_id: int, request: Request, _: bool = Depends(auth.require_session)):
     rate_limit("write", request.client.host if request.client else "unknown")
@@ -196,6 +209,20 @@ async def create_link(topic_id: int, request: Request, _: bool = Depends(auth.re
         raise HTTPException(status_code=400, detail="Link title and URL are required")
     link_id = await links_store.create_link(topic_id, title, _normalize_url(url))
     return await links_store.get_link(link_id)
+
+
+@app.put("/api/links/{link_id}")
+async def update_link(link_id: int, request: Request, _: bool = Depends(auth.require_session)):
+    rate_limit("write", request.client.host if request.client else "unknown")
+    body = await request.json()
+    title = (body.get("title") or "").strip()
+    url = (body.get("url") or "").strip()
+    if not title or not url:
+        raise HTTPException(status_code=400, detail="Link title and URL are required")
+    link = await links_store.update_link(link_id, title, _normalize_url(url))
+    if link is None:
+        raise HTTPException(status_code=404, detail="Not found")
+    return link
 
 
 @app.delete("/api/links/{link_id}", status_code=204)

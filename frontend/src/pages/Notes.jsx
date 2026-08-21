@@ -78,6 +78,11 @@ export default function Notes({ identity, names }) {
     setNotes((prev) => prev.map((n) => (n.id === note.id ? updated : n)))
   }
 
+  const updateNote = async (id, patch) => {
+    const updated = await api.updateNote(id, patch)
+    setNotes((prev) => prev.map((n) => (n.id === id ? updated : n)))
+  }
+
   const removeNote = async (id) => {
     await api.deleteNote(id)
     setNotes((prev) => prev.filter((n) => n.id !== id))
@@ -146,6 +151,7 @@ export default function Notes({ identity, names }) {
                 identity={identity}
                 onToggleDone={toggleDone}
                 onDelete={removeNote}
+                onUpdate={updateNote}
                 onReplyAdded={addReply}
               />
             ))}

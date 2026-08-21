@@ -26,12 +26,21 @@ function reminderStatus(remindAt) {
   return { label: due.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }), tone: 'upcoming' }
 }
 
-export default function NoteThread({ note, replies, identity, onToggleDone, onDelete, onReplyAdded }) {
+export default function NoteThread({ note, replies, identity, onToggleDone, onDelete, onUpdate, onReplyAdded }) {
   const [confirming, setConfirming] = useState(false)
   const [replyOpen, setReplyOpen] = useState(false)
   const [replyText, setReplyText] = useState('')
   const [replyConfirmId, setReplyConfirmId] = useState(null)
   const [submitting, setSubmitting] = useState(false)
+
+  const [editing, setEditing] = useState(false)
+  const [editContent, setEditContent] = useState(note.content)
+  const [editRemindAt, setEditRemindAt] = useState(note.remind_at || '')
+  const [savingEdit, setSavingEdit] = useState(false)
+
+  const [replyEditId, setReplyEditId] = useState(null)
+  const [replyEditText, setReplyEditText] = useState('')
+  const [savingReplyEdit, setSavingReplyEdit] = useState(false)
 
   const status = note.kind === 'reminder' && !note.done ? reminderStatus(note.remind_at) : null
 
@@ -50,6 +59,46 @@ export default function NoteThread({ note, replies, identity, onToggleDone, onDe
     }
   }
 
+  const startEdit = () => {
+    setEditContent(note.content)
+    setEditRemindAt(note.remind_at || '')
+    setEditing(true)
+  }
+
+  const saveEdit = async (e) => {
+    e.preventDefault()
+    const text = editContent.trim()
+    if (!text) return
+    setSavingEdit(true)
+    try {
+      await onUpdate(note.id, {
+        content: text,
+        remind_at: note.kind === 'reminder' && editRemindAt ? editRemindAt : null,
+      })
+      setEditing(false)
+    } finally {
+      setSavingEdit(false)
+    }
+  }
+
+  const startReplyEdit = (reply) => {
+    setReplyEditId(reply.id)
+    setReplyEditText(reply.content)
+  }
+
+  const saveReplyEdit = async (e) => {
+    e.preventDefault()
+    const text = replyEditText.trim()
+    if (!text) return
+    setSavingReplyEdit(true)
+    try {
+      await onUpdate(replyEditId, { content: text })
+      setReplyEditId(null)
+    } finally {
+      setSavingReplyEdit(false)
+    }
+  }
+
   return (
     <li className={note.done ? 'note-card note-card-done' : 'note-card'}>
       <span className="avatar avatar-sm" style={{ background: colorFor(note.author) }}>
@@ -62,7 +111,31 @@ export default function NoteThread({ note, replies, identity, onToggleDone, onDe
           <span className="note-time">{formatWhen(note.created_at)}</span>
           {status && <span className={`badge badge-${status.tone}`}>{status.label}</span>}
         </div>
-        <p className="note-content">{note.content}</p>
+        {editing ? (
+          <form className="edit-composer" onSubmit={saveEdit}>
+            <textarea
+              className="input edit-textarea"
+              value={editContent}
+              onChange={(e) => setEditContent(e.target.value)}
+              rows={2}
+              autoFocus
+            />
+            {note.kind === 'reminder' && (
+              <input
+                type="date"
+                className="input input-date"
+                value={editRemindAt}
+                onChange={(e) => setEditRemindAt(e.target.value)}
+              />
+            )}
+            <div className="edit-composer-actions">
+              <button className="btn btn-primary" type="submit" disabled={savingEdit || !editContent.trim()}>Save</button>
+              <button type="button" className="text-btn" onClick={() => setEditing(false)}>Cancel</button>
+            </div>
+          </form>
+        ) : (
+          <p className="note-content">{note.content}</p>
+        )}
 
         {replies.length > 0 && (
           <ul className="thread-list">
@@ -77,15 +150,31 @@ export default function NoteThread({ note, replies, identity, onToggleDone, onDe
                     <span className="note-dot">·</span>
                     <span className="note-time">{formatWhen(reply.created_at)}</span>
                   </div>
-                  <p className="note-content">{reply.content}</p>
+                  {replyEditId === reply.id ? (
+                    <form className="reply-composer" onSubmit={saveReplyEdit}>
+                      <input
+                        className="input"
+                        value={replyEditText}
+                        onChange={(e) => setReplyEditText(e.target.value)}
+                        autoFocus
+                      />
+                      <button className="btn btn-primary" type="submit" disabled={savingReplyEdit || !replyEditText.trim()}>Save</button>
+                      <button type="button" className="text-btn" onClick={() => setReplyEditId(null)}>Cancel</button>
+                    </form>
+                  ) : (
+                    <p className="note-content">{reply.content}</p>
+                  )}
                 </div>
-                {replyConfirmId === reply.id ? (
+                {replyEditId === reply.id ? null : replyConfirmId === reply.id ? (
                   <span className="confirm-row">
                     <button className="text-btn text-btn-danger" onClick={() => onDelete(reply.id)}>Delete</button>
                     <button className="text-btn" onClick={() => setReplyConfirmId(null)}>Cancel</button>
                   </span>
                 ) : (
-                  <button className="icon-btn icon-btn-ghost" onClick={() => setReplyConfirmId(reply.id)} title="Delete reply">✕</button>
+                  <span className="confirm-row">
+                    <button className="icon-btn icon-btn-ghost icon-btn-edit" onClick={() => startReplyEdit(reply)} title="Edit reply">✎</button>
+                    <button className="icon-btn icon-btn-ghost" onClick={() => setReplyConfirmId(reply.id)} title="Delete reply">✕</button>
+                  </span>
                 )}
               </li>
             ))}
@@ -126,7 +215,10 @@ export default function NoteThread({ note, replies, identity, onToggleDone, onDe
             <button className="text-btn" onClick={() => setConfirming(false)}>Cancel</button>
           </span>
         ) : (
-          <button className="icon-btn icon-btn-ghost" onClick={() => setConfirming(true)} title="Delete">✕</button>
+          <>
+            <button className="icon-btn icon-btn-ghost icon-btn-edit" onClick={startEdit} title="Edit">✎</button>
+            <button className="icon-btn icon-btn-ghost" onClick={() => setConfirming(true)} title="Delete">✕</button>
+          </>
         )}
       </div>
     </li>

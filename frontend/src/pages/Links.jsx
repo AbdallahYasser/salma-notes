@@ -17,6 +17,10 @@ export default function Links() {
   const [confirmTopicId, setConfirmTopicId] = useState(null)
   const [addingLinkTopicId, setAddingLinkTopicId] = useState(null)
   const [linkDrafts, setLinkDrafts] = useState({})
+  const [editingTopicId, setEditingTopicId] = useState(null)
+  const [topicTitleDraft, setTopicTitleDraft] = useState('')
+  const [editingLinkId, setEditingLinkId] = useState(null)
+  const [linkEditDraft, setLinkEditDraft] = useState({ title: '', url: '' })
 
   useEffect(() => {
     api.listTopics().then((data) => setTopics(data.rows)).finally(() => setLoading(false))
@@ -82,6 +86,37 @@ export default function Links() {
     setTopics((prev) => prev.map((t) => (t.id === topicId ? { ...t, links: t.links.filter((l) => l.id !== linkId) } : t)))
   }
 
+  const startTopicEdit = (topic) => {
+    setTopicTitleDraft(topic.title)
+    setEditingTopicId(topic.id)
+  }
+
+  const saveTopicEdit = async (e, topicId) => {
+    e.preventDefault()
+    const title = topicTitleDraft.trim()
+    if (!title) return
+    const updated = await api.updateTopic(topicId, title)
+    setTopics((prev) => prev.map((t) => (t.id === topicId ? { ...t, title: updated.title } : t)))
+    setEditingTopicId(null)
+  }
+
+  const startLinkEdit = (link) => {
+    setLinkEditDraft({ title: link.title, url: link.url })
+    setEditingLinkId(link.id)
+  }
+
+  const saveLinkEdit = async (e, topicId, linkId) => {
+    e.preventDefault()
+    const title = linkEditDraft.title.trim()
+    const url = linkEditDraft.url.trim()
+    if (!title || !url) return
+    const updated = await api.updateLink(linkId, title, url)
+    setTopics((prev) => prev.map((t) => (
+      t.id === topicId ? { ...t, links: t.links.map((l) => (l.id === linkId ? updated : l)) } : t
+    )))
+    setEditingLinkId(null)
+  }
+
   return (
     <>
       <form className="composer" onSubmit={addTopic}>
@@ -125,18 +160,36 @@ export default function Links() {
             return (
               <li key={topic.id} className="topic-card">
                 <div className="topic-header">
-                  <button className="topic-toggle" onClick={() => toggleExpand(topic.id)}>
-                    <span className={expanded ? 'topic-caret topic-caret-open' : 'topic-caret'}>▸</span>
-                    <h3 className="topic-title">{topic.title}</h3>
-                    <span className="topic-count">{topic.links.length}</span>
-                  </button>
-                  {confirmTopicId === topic.id ? (
-                    <span className="confirm-row">
-                      <button className="text-btn text-btn-danger" onClick={() => removeTopic(topic.id)}>Delete</button>
-                      <button className="text-btn" onClick={() => setConfirmTopicId(null)}>Cancel</button>
-                    </span>
+                  {editingTopicId === topic.id ? (
+                    <form className="topic-edit-composer" onSubmit={(e) => saveTopicEdit(e, topic.id)}>
+                      <input
+                        className="input"
+                        value={topicTitleDraft}
+                        onChange={(e) => setTopicTitleDraft(e.target.value)}
+                        autoFocus
+                      />
+                      <button className="btn btn-primary" type="submit" disabled={!topicTitleDraft.trim()}>Save</button>
+                      <button type="button" className="text-btn" onClick={() => setEditingTopicId(null)}>Cancel</button>
+                    </form>
                   ) : (
-                    <button className="icon-btn icon-btn-ghost" onClick={() => setConfirmTopicId(topic.id)} title="Delete topic">✕</button>
+                    <>
+                      <button className="topic-toggle" onClick={() => toggleExpand(topic.id)}>
+                        <span className={expanded ? 'topic-caret topic-caret-open' : 'topic-caret'}>▸</span>
+                        <h3 className="topic-title">{topic.title}</h3>
+                        <span className="topic-count">{topic.links.length}</span>
+                      </button>
+                      {confirmTopicId === topic.id ? (
+                        <span className="confirm-row">
+                          <button className="text-btn text-btn-danger" onClick={() => removeTopic(topic.id)}>Delete</button>
+                          <button className="text-btn" onClick={() => setConfirmTopicId(null)}>Cancel</button>
+                        </span>
+                      ) : (
+                        <span className="confirm-row">
+                          <button className="icon-btn icon-btn-ghost icon-btn-edit" onClick={() => startTopicEdit(topic)} title="Edit topic">✎</button>
+                          <button className="icon-btn icon-btn-ghost" onClick={() => setConfirmTopicId(topic.id)} title="Delete topic">✕</button>
+                        </span>
+                      )}
+                    </>
                   )}
                 </div>
 
@@ -146,10 +199,35 @@ export default function Links() {
                       <ul className="link-list">
                         {topic.links.map((link) => (
                           <li key={link.id} className="link-item">
-                            <a className="link-anchor" href={link.url} target="_blank" rel="noopener noreferrer">
-                              {link.title}
-                            </a>
-                            <button className="icon-btn icon-btn-ghost" onClick={() => removeLink(topic.id, link.id)} title="Delete link">✕</button>
+                            {editingLinkId === link.id ? (
+                              <form className="link-composer" onSubmit={(e) => saveLinkEdit(e, topic.id, link.id)}>
+                                <input
+                                  className="input"
+                                  placeholder="Link title"
+                                  value={linkEditDraft.title}
+                                  onChange={(e) => setLinkEditDraft((d) => ({ ...d, title: e.target.value }))}
+                                  autoFocus
+                                />
+                                <input
+                                  className="input"
+                                  placeholder="https://…"
+                                  value={linkEditDraft.url}
+                                  onChange={(e) => setLinkEditDraft((d) => ({ ...d, url: e.target.value }))}
+                                />
+                                <button className="btn btn-primary" type="submit" disabled={!linkEditDraft.title.trim() || !linkEditDraft.url.trim()}>Save</button>
+                                <button type="button" className="text-btn" onClick={() => setEditingLinkId(null)}>Cancel</button>
+                              </form>
+                            ) : (
+                              <>
+                                <a className="link-anchor" href={link.url} target="_blank" rel="noopener noreferrer">
+                                  {link.title}
+                                </a>
+                                <span className="confirm-row">
+                                  <button className="icon-btn icon-btn-ghost icon-btn-edit" onClick={() => startLinkEdit(link)} title="Edit link">✎</button>
+                                  <button className="icon-btn icon-btn-ghost" onClick={() => removeLink(topic.id, link.id)} title="Delete link">✕</button>
+                                </span>
+                              </>
+                            )}
                           </li>
                         ))}
                       </ul>

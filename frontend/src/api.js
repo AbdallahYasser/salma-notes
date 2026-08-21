@@ -42,9 +42,13 @@ export const api = {
 
   listTopics: () => request('/topics'),
   createTopic: (title) => request('/topics', { method: 'POST', body: JSON.stringify({ title }) }),
+  updateTopic: (id, title) => request(`/topics/${id}`, { method: 'PUT', body: JSON.stringify({ title }) }),
   deleteTopic: (id) => request(`/topics/${id}`, { method: 'DELETE' }),
   createLink: (topicId, title, url) => request(`/topics/${topicId}/links`, {
     method: 'POST', body: JSON.stringify({ title, url }),
+  }),
+  updateLink: (id, title, url) => request(`/links/${id}`, {
+    method: 'PUT', body: JSON.stringify({ title, url }),
   }),
   deleteLink: (id) => request(`/links/${id}`, { method: 'DELETE' }),
 }

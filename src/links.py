@@ -30,6 +30,13 @@ async def get_topic(topic_id: int) -> dict | None:
         return dict(row) if row else None
 
 
+async def update_topic(topic_id: int, title: str) -> dict | None:
+    async with get_db() as db:
+        await db.execute("UPDATE topics SET title = ? WHERE id = ?", (title, topic_id))
+        await db.commit()
+    return await get_topic(topic_id)
+
+
 async def delete_topic(topic_id: int) -> bool:
     async with get_db() as db:
         await db.execute("DELETE FROM links WHERE topic_id = ?", (topic_id,))
@@ -53,6 +60,13 @@ async def get_link(link_id: int) -> dict | None:
         cur = await db.execute("SELECT * FROM links WHERE id = ?", (link_id,))
         row = await cur.fetchone()
         return dict(row) if row else None
+
+
+async def update_link(link_id: int, title: str, url: str) -> dict | None:
+    async with get_db() as db:
+        await db.execute("UPDATE links SET title = ?, url = ? WHERE id = ?", (title, url, link_id))
+        await db.commit()
+    return await get_link(link_id)
 
 
 async def delete_link(link_id: int) -> bool:

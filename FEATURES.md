@@ -8,6 +8,29 @@ next). Newest entries on top.
 
 ---
 
+## 2026-08-22 — Edit notes, reminders, replies, topics, and links
+
+**Business**: Everything you write can now be corrected instead of
+deleted and redone. A pencil icon next to the ✕ on a note, reminder,
+reply, link topic, or individual link opens it for editing in place -
+change the text (and the date, for a reminder) and hit Save.
+
+**Technical**: Backend already supported arbitrary-field note updates via
+`PUT /api/notes/{id}` (`src/notes.py::update_note`); reused as-is for
+content/remind_at edits. Added `PUT /api/topics/{topic_id}` and
+`PUT /api/links/{link_id}` (`src/main.py`, `src/links.py::update_topic`,
+`update_link`) - previously only create/delete existed for those. Frontend:
+`NoteThread.jsx` gained inline edit state for the top-level note and for
+each reply (textarea/input swapped in for the content `<p>`, Save/Cancel
+row); `Notes.jsx` gained an `updateNote` handler passed down as `onUpdate`.
+`Links.jsx` gained inline edit forms for topic titles and for link
+title/URL, reusing the existing `link-composer` layout. New CSS:
+`.icon-btn-edit`, `.edit-composer`, `.edit-textarea`,
+`.edit-composer-actions`, `.topic-edit-composer` in `styles.css`.
+Verified end-to-end with a scripted Playwright run against local dev
+servers (login → edit note → edit reminder → edit reply → edit topic →
+edit link), all passing.
+
 ## 2026-08-22 — Fixed static asset caching (site felt slow to open)
 
 **Business**: The site was re-downloading its full app code from the

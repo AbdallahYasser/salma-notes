@@ -8,6 +8,47 @@ next). Newest entries on top.
 
 ---
 
+## 2026-08-22 — Duplicate-link warning, and a Trash for deleted notes/reminders/links
+
+**Business**: Adding a link that's already saved somewhere else on the
+Links page (same web address, any topic or category) is now rejected with
+a message naming where it already lives, so the same link doesn't end up
+saved twice by accident. Separately, deleting a note, reminder, or link no
+longer destroys it right away - it moves to a new "Trash" page for 30
+days, where you can see it (a link still shows which topic and category it
+belonged to) and restore it if the delete was a mistake. After 30 days
+it's gone for good.
+
+**Technical**: `notes` and `links` tables gained a nullable `deleted_at`
+column (`src/db.py`, same manual `ALTER TABLE` retrofit pattern as prior
+migrations). `delete_note`/`delete_link` now set `deleted_at` instead of
+hard-deleting (`src/notes.py`, `src/links.py`); `list_notes`/
+`list_topics_with_links` filter `deleted_at IS NULL`. New
+`list_deleted_notes`/`list_deleted_links` first purge rows past 30 days
+(`deleted_at < datetime('now', '-30 days')`), then return the rest -
+`list_deleted_links` joins `topics`/`categories` for context. New
+`restore_note`/`restore_link` clear `deleted_at`. Note: deleting a whole
+*topic* (`delete_topic`) still hard-cascades its links as before -
+unchanged - only a direct link delete goes to Trash, so a link's topic
+row is always still there to join against. New `find_link_by_url`
+(case-insensitive, excludes soft-deleted) backs a duplicate check added to
+`POST /api/topics/{id}/links` and `PUT /api/links/{id}` in `src/main.py`,
+returning 409 with a message like `This link already exists in
+"Appliances (Kitchen)"`. New routes: `POST /api/notes/{id}/restore`,
+`POST /api/links/{id}/restore`, `GET /api/trash` (returns `{notes, links}`).
+Frontend: `Links.jsx` catches the 409 and shows it inline via new
+`linkFormErrors`/`linkEditError` state (`.link-form-error` CSS); new
+`Trash.jsx` page and `/trash` route/nav link, listing both groups with a
+"Restore" button each; extracted `formatWhen()` out of `NoteThread.jsx`
+into a shared `frontend/src/formatWhen.js` since `Trash.jsx` needed it
+too. New CSS: `.trash-*` classes in `styles.css`. Verified end-to-end
+against local dev servers in a real browser (duplicate link rejected
+cross-topic and case-insensitively; delete + restore for a note, a
+reminder, and a link, including confirming the link's topic/category
+context in Trash and that it lands back in the right topic on restore).
+
+---
+
 ## 2026-08-22 — Group topics into categories on the Links page
 
 **Business**: Topics on the Links page can now be grouped under a named

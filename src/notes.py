@@ -1,11 +1,12 @@
 from src.db import get_db
 
 _ALLOWED_UPDATE_FIELDS = {"content", "kind", "remind_at", "done"}
+_TRASH_RETENTION_DAYS = 30
 
 
 async def list_notes() -> list[dict]:
     async with get_db() as db:
-        cur = await db.execute("SELECT * FROM notes ORDER BY created_at DESC")
+        cur = await db.execute("SELECT * FROM notes WHERE deleted_at IS NULL ORDER BY created_at DESC")
         rows = await cur.fetchall()
         return [dict(r) for r in rows]
 
@@ -46,7 +47,34 @@ async def get_note(note_id: int) -> dict | None:
 
 async def delete_note(note_id: int) -> bool:
     async with get_db() as db:
-        await db.execute("DELETE FROM notes WHERE parent_id = ?", (note_id,))
-        cur = await db.execute("DELETE FROM notes WHERE id = ?", (note_id,))
+        await db.execute(
+            "UPDATE notes SET deleted_at = datetime('now') WHERE parent_id = ? AND deleted_at IS NULL",
+            (note_id,),
+        )
+        cur = await db.execute(
+            "UPDATE notes SET deleted_at = datetime('now') WHERE id = ? AND deleted_at IS NULL",
+            (note_id,),
+        )
         await db.commit()
         return cur.rowcount > 0
+
+
+async def list_deleted_notes() -> list[dict]:
+    async with get_db() as db:
+        await db.execute(
+            "DELETE FROM notes WHERE deleted_at IS NOT NULL AND deleted_at < datetime('now', ?)",
+            (f"-{_TRASH_RETENTION_DAYS} days",),
+        )
+        await db.commit()
+        cur = await db.execute("SELECT * FROM notes WHERE deleted_at IS NOT NULL ORDER BY deleted_at DESC")
+        return [dict(r) for r in await cur.fetchall()]
+
+
+async def restore_note(note_id: int) -> dict | None:
+    async with get_db() as db:
+        await db.execute("UPDATE notes SET deleted_at = NULL WHERE parent_id = ?", (note_id,))
+        cur = await db.execute("UPDATE notes SET deleted_at = NULL WHERE id = ?", (note_id,))
+        await db.commit()
+        if cur.rowcount == 0:
+            return None
+    return await get_note(note_id)

@@ -71,6 +71,19 @@ async def apply_migrations() -> None:
             await db.execute("ALTER TABLE topics ADD COLUMN category_id INTEGER REFERENCES categories(id)")
         await db.execute("CREATE INDEX IF NOT EXISTS idx_topics_category ON topics(category_id)")
 
+        # `deleted_at` retrofits for soft-delete / trash - same pattern as above.
+        cur = await db.execute("PRAGMA table_info(notes)")
+        columns = {row[1] for row in await cur.fetchall()}
+        if "deleted_at" not in columns:
+            await db.execute("ALTER TABLE notes ADD COLUMN deleted_at TEXT")
+        await db.execute("CREATE INDEX IF NOT EXISTS idx_notes_deleted ON notes(deleted_at)")
+
+        cur = await db.execute("PRAGMA table_info(links)")
+        columns = {row[1] for row in await cur.fetchall()}
+        if "deleted_at" not in columns:
+            await db.execute("ALTER TABLE links ADD COLUMN deleted_at TEXT")
+        await db.execute("CREATE INDEX IF NOT EXISTS idx_links_deleted ON links(deleted_at)")
+
         await db.commit()
 
 

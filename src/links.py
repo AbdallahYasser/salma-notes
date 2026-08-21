@@ -1,11 +1,15 @@
 from src.db import get_db
 
+_TRASH_RETENTION_DAYS = 30
+
 
 async def list_topics_with_links() -> list[dict]:
     async with get_db() as db:
         topics_cur = await db.execute("SELECT * FROM topics ORDER BY created_at DESC")
         topics = [dict(r) for r in await topics_cur.fetchall()]
-        links_cur = await db.execute("SELECT * FROM links ORDER BY created_at ASC")
+        links_cur = await db.execute(
+            "SELECT * FROM links WHERE deleted_at IS NULL ORDER BY created_at ASC"
+        )
         links = [dict(r) for r in await links_cur.fetchall()]
 
     by_topic: dict[int, list] = {}
@@ -110,6 +114,54 @@ async def update_link(link_id: int, title: str, url: str) -> dict | None:
 
 async def delete_link(link_id: int) -> bool:
     async with get_db() as db:
-        cur = await db.execute("DELETE FROM links WHERE id = ?", (link_id,))
+        cur = await db.execute(
+            "UPDATE links SET deleted_at = datetime('now') WHERE id = ? AND deleted_at IS NULL",
+            (link_id,),
+        )
         await db.commit()
         return cur.rowcount > 0
+
+
+async def list_deleted_links() -> list[dict]:
+    async with get_db() as db:
+        await db.execute(
+            "DELETE FROM links WHERE deleted_at IS NOT NULL AND deleted_at < datetime('now', ?)",
+            (f"-{_TRASH_RETENTION_DAYS} days",),
+        )
+        await db.commit()
+        cur = await db.execute("""
+            SELECT links.*, topics.title AS topic_title, categories.title AS category_title
+            FROM links
+            JOIN topics ON topics.id = links.topic_id
+            LEFT JOIN categories ON categories.id = topics.category_id
+            WHERE links.deleted_at IS NOT NULL
+            ORDER BY links.deleted_at DESC
+        """)
+        return [dict(r) for r in await cur.fetchall()]
+
+
+async def restore_link(link_id: int) -> dict | None:
+    async with get_db() as db:
+        cur = await db.execute("UPDATE links SET deleted_at = NULL WHERE id = ?", (link_id,))
+        await db.commit()
+        if cur.rowcount == 0:
+            return None
+    return await get_link(link_id)
+
+
+async def find_link_by_url(url: str, exclude_link_id: int | None = None) -> dict | None:
+    query = """
+        SELECT links.*, topics.title AS topic_title, categories.title AS category_title
+        FROM links
+        JOIN topics ON topics.id = links.topic_id
+        LEFT JOIN categories ON categories.id = topics.category_id
+        WHERE links.deleted_at IS NULL AND lower(links.url) = lower(?)
+    """
+    params = [url]
+    if exclude_link_id is not None:
+        query += " AND links.id != ?"
+        params.append(exclude_link_id)
+    async with get_db() as db:
+        cur = await db.execute(query, params)
+        row = await cur.fetchone()
+        return dict(row) if row else None

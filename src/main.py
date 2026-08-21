@@ -149,6 +149,15 @@ async def delete_note(note_id: int, request: Request, _: bool = Depends(auth.req
     return Response(status_code=204)
 
 
+@app.post("/api/notes/{note_id}/restore")
+async def restore_note(note_id: int, request: Request, _: bool = Depends(auth.require_session)):
+    rate_limit("write", request.client.host if request.client else "unknown")
+    note = await notes_store.restore_note(note_id)
+    if note is None:
+        raise HTTPException(status_code=404, detail="Not found")
+    return note
+
+
 # ---------------------------------------------------------------------------
 # Links (topics, each holding a list of titled links)
 # ---------------------------------------------------------------------------
@@ -156,6 +165,13 @@ def _normalize_url(url: str) -> str:
     if not url.lower().startswith(("http://", "https://")):
         return f"https://{url}"
     return url
+
+
+def _duplicate_link_detail(existing: dict) -> str:
+    location = existing["topic_title"]
+    if existing["category_title"]:
+        location += f' ({existing["category_title"]})'
+    return f'This link already exists in "{location}"'
 
 
 @app.get("/api/categories")
@@ -250,7 +266,11 @@ async def create_link(topic_id: int, request: Request, _: bool = Depends(auth.re
     url = (body.get("url") or "").strip()
     if not title or not url:
         raise HTTPException(status_code=400, detail="Link title and URL are required")
-    link_id = await links_store.create_link(topic_id, title, _normalize_url(url))
+    normalized_url = _normalize_url(url)
+    existing = await links_store.find_link_by_url(normalized_url)
+    if existing is not None:
+        raise HTTPException(status_code=409, detail=_duplicate_link_detail(existing))
+    link_id = await links_store.create_link(topic_id, title, normalized_url)
     return await links_store.get_link(link_id)
 
 
@@ -262,7 +282,11 @@ async def update_link(link_id: int, request: Request, _: bool = Depends(auth.req
     url = (body.get("url") or "").strip()
     if not title or not url:
         raise HTTPException(status_code=400, detail="Link title and URL are required")
-    link = await links_store.update_link(link_id, title, _normalize_url(url))
+    normalized_url = _normalize_url(url)
+    existing = await links_store.find_link_by_url(normalized_url, exclude_link_id=link_id)
+    if existing is not None:
+        raise HTTPException(status_code=409, detail=_duplicate_link_detail(existing))
+    link = await links_store.update_link(link_id, title, normalized_url)
     if link is None:
         raise HTTPException(status_code=404, detail="Not found")
     return link
@@ -274,6 +298,26 @@ async def delete_link(link_id: int, request: Request, _: bool = Depends(auth.req
     if not await links_store.delete_link(link_id):
         raise HTTPException(status_code=404, detail="Not found")
     return Response(status_code=204)
+
+
+@app.post("/api/links/{link_id}/restore")
+async def restore_link(link_id: int, request: Request, _: bool = Depends(auth.require_session)):
+    rate_limit("write", request.client.host if request.client else "unknown")
+    link = await links_store.restore_link(link_id)
+    if link is None:
+        raise HTTPException(status_code=404, detail="Not found")
+    return link
+
+
+# ---------------------------------------------------------------------------
+# Trash (soft-deleted notes, reminders, and links - kept 30 days)
+# ---------------------------------------------------------------------------
+@app.get("/api/trash")
+async def get_trash(_: bool = Depends(auth.require_session)):
+    return {
+        "notes": await notes_store.list_deleted_notes(),
+        "links": await links_store.list_deleted_links(),
+    }
 
 
 # ---------------------------------------------------------------------------

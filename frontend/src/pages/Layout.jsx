@@ -18,6 +18,7 @@ export default function Layout({ identity, onSwitchIdentity, onLogout }) {
         <nav className="page-nav">
           <NavLink to="/" className={navClass} end>Notes</NavLink>
           <NavLink to="/links" className={navClass}>Links</NavLink>
+          <NavLink to="/trash" className={navClass}>Trash</NavLink>
         </nav>
         <div className="topbar-actions">
           <button className="identity-pill" onClick={onSwitchIdentity} title="Switch who you are">

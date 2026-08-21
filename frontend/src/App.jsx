@@ -4,6 +4,7 @@ import { api } from './api.js'
 import Login from './pages/Login.jsx'
 import Notes from './pages/Notes.jsx'
 import Links from './pages/Links.jsx'
+import Trash from './pages/Trash.jsx'
 import Layout from './pages/Layout.jsx'
 import IdentityGate from './pages/IdentityGate.jsx'
 
@@ -54,6 +55,7 @@ export default function App() {
       >
         <Route path="/" element={<Notes identity={identity} names={names} />} />
         <Route path="/links" element={<Links />} />
+        <Route path="/trash" element={<Trash />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

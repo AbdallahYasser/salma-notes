@@ -43,11 +43,13 @@ export default function Links() {
   const [confirmTopicId, setConfirmTopicId] = useState(null)
   const [addingLinkTopicId, setAddingLinkTopicId] = useState(null)
   const [linkDrafts, setLinkDrafts] = useState({})
+  const [linkFormErrors, setLinkFormErrors] = useState({})
   const [editingTopicId, setEditingTopicId] = useState(null)
   const [topicTitleDraft, setTopicTitleDraft] = useState('')
   const [topicCategoryDraft, setTopicCategoryDraft] = useState('')
   const [editingLinkId, setEditingLinkId] = useState(null)
   const [linkEditDraft, setLinkEditDraft] = useState({ title: '', url: '' })
+  const [linkEditError, setLinkEditError] = useState(null)
 
   useEffect(() => {
     Promise.all([api.listTopics(), api.listCategories()])
@@ -188,10 +190,16 @@ export default function Links() {
     const title = draft.title.trim()
     const url = draft.url.trim()
     if (!title || !url) return
-    const link = await api.createLink(topicId, title, url)
-    setTopics((prev) => prev.map((t) => (t.id === topicId ? { ...t, links: [...t.links, link] } : t)))
-    setLinkDrafts((prev) => ({ ...prev, [topicId]: { title: '', url: '' } }))
-    setAddingLinkTopicId(null)
+    try {
+      const link = await api.createLink(topicId, title, url)
+      setTopics((prev) => prev.map((t) => (t.id === topicId ? { ...t, links: [...t.links, link] } : t)))
+      setLinkDrafts((prev) => ({ ...prev, [topicId]: { title: '', url: '' } }))
+      setAddingLinkTopicId(null)
+      setLinkFormErrors((prev) => ({ ...prev, [topicId]: null }))
+    } catch (err) {
+      if (err.status !== 409) throw err
+      setLinkFormErrors((prev) => ({ ...prev, [topicId]: err.message }))
+    }
   }
 
   const removeLink = async (topicId, linkId) => {
@@ -219,6 +227,7 @@ export default function Links() {
 
   const startLinkEdit = (link) => {
     setLinkEditDraft({ title: link.title, url: link.url })
+    setLinkEditError(null)
     setEditingLinkId(link.id)
   }
 
@@ -227,11 +236,17 @@ export default function Links() {
     const title = linkEditDraft.title.trim()
     const url = linkEditDraft.url.trim()
     if (!title || !url) return
-    const updated = await api.updateLink(linkId, title, url)
-    setTopics((prev) => prev.map((t) => (
-      t.id === topicId ? { ...t, links: t.links.map((l) => (l.id === linkId ? updated : l)) } : t
-    )))
-    setEditingLinkId(null)
+    try {
+      const updated = await api.updateLink(linkId, title, url)
+      setTopics((prev) => prev.map((t) => (
+        t.id === topicId ? { ...t, links: t.links.map((l) => (l.id === linkId ? updated : l)) } : t
+      )))
+      setEditingLinkId(null)
+      setLinkEditError(null)
+    } catch (err) {
+      if (err.status !== 409) throw err
+      setLinkEditError(err.message)
+    }
   }
 
   const renderTopic = (topic) => {
@@ -304,7 +319,8 @@ export default function Links() {
                           onChange={(e) => setLinkEditDraft((d) => ({ ...d, url: e.target.value }))}
                         />
                         <button className="btn btn-primary" type="submit" disabled={!linkEditDraft.title.trim() || !linkEditDraft.url.trim()}>Save</button>
-                        <button type="button" className="text-btn" onClick={() => setEditingLinkId(null)}>Cancel</button>
+                        <button type="button" className="text-btn" onClick={() => { setEditingLinkId(null); setLinkEditError(null) }}>Cancel</button>
+                        {linkEditError && <p className="link-form-error">{linkEditError}</p>}
                       </form>
                     ) : (
                       <>
@@ -340,7 +356,11 @@ export default function Links() {
                 <button className="btn btn-primary" type="submit" disabled={!draftFor(topic.id).title.trim() || !draftFor(topic.id).url.trim()}>
                   Add
                 </button>
-                <button type="button" className="text-btn" onClick={() => setAddingLinkTopicId(null)}>Cancel</button>
+                <button type="button" className="text-btn" onClick={() => {
+                  setAddingLinkTopicId(null)
+                  setLinkFormErrors((prev) => ({ ...prev, [topic.id]: null }))
+                }}>Cancel</button>
+                {linkFormErrors[topic.id] && <p className="link-form-error">{linkFormErrors[topic.id]}</p>}
               </form>
             ) : (
               <button className="text-btn thread-reply-btn" onClick={() => setAddingLinkTopicId(topic.id)}>

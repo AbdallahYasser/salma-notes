@@ -8,7 +8,29 @@ next). Newest entries on top.
 
 ---
 
-## 2026-08-18 — Mobile top bar fix (iPhone 11 and similar widths)
+## 2026-08-22 — Fixed static asset caching (site felt slow to open)
+
+**Business**: The site was re-downloading its full app code from the
+server on every single visit instead of remembering it, which made it
+feel slower to open than it should. Pages should now load noticeably
+faster on repeat visits. (Checked the server itself too - disk space
+was never the issue, plenty free; this was a caching bug in the app.)
+
+**Technical**: `NoCacheStaticFiles` in `src/main.py` was setting
+`Cache-Control: no-store` on every response, including the Vite-hashed
+`/assets/*.js`/`.css` bundle files - which are safe to cache forever
+since a rebuild ships under a new hash. Cloudflare was passing that
+through as `cf-cache-status: DYNAMIC` (never cached), so every page load
+re-fetched the ~250KB JS bundle from origin. Now `/assets/*` gets
+`Cache-Control: public, max-age=31536000, immutable`; everything else
+(notably `index.html`, which must always be fresh so it points at the
+current asset hashes) keeps `no-store`. Also checked the EC2 box
+(`13.62.25.23`, shared with perfume-erp/garment-erp) directly via SSH:
+disk is fine (24G free / 29% used), but RAM is tight (1.9GB total, only
+~220MB free, 433MB in swap) across the four co-hosted services - not
+this bug's cause, but worth knowing if slowness continues after this
+fix; the real remedy there would be resizing the instance, not adding
+disk.
 
 **Business**: On a phone-width screen the top bar (logo + Notes/Links tabs
 + your name + settings + logout) was tight enough to wrap awkwardly - the

@@ -220,7 +220,15 @@ class NoCacheStaticFiles(StaticFiles):
             if exc.status_code != 404 or path.startswith("api/") or path == "api":
                 raise
             response = await super().get_response("index.html", scope)
-        response.headers["Cache-Control"] = "no-store"
+        # Vite hashes its output filenames (assets/index-<hash>.js), so those
+        # are safe to cache forever - a rebuild ships under a new name.
+        # index.html (and anything else, e.g. the SPA-fallback above) must
+        # stay no-store or the browser/CDN would keep serving stale asset
+        # references after a deploy.
+        if path.startswith("assets/"):
+            response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+        else:
+            response.headers["Cache-Control"] = "no-store"
         return response
 
 

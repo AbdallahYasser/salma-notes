@@ -43,6 +43,7 @@ CREATE TABLE IF NOT EXISTS links (
     topic_id INTEGER NOT NULL REFERENCES topics(id),
     title TEXT NOT NULL,
     url TEXT NOT NULL,
+    watched INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
@@ -83,6 +84,11 @@ async def apply_migrations() -> None:
         if "deleted_at" not in columns:
             await db.execute("ALTER TABLE links ADD COLUMN deleted_at TEXT")
         await db.execute("CREATE INDEX IF NOT EXISTS idx_links_deleted ON links(deleted_at)")
+
+        cur = await db.execute("PRAGMA table_info(links)")
+        columns = {row[1] for row in await cur.fetchall()}
+        if "watched" not in columns:
+            await db.execute("ALTER TABLE links ADD COLUMN watched INTEGER NOT NULL DEFAULT 0")
 
         await db.commit()
 

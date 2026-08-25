@@ -207,6 +207,16 @@ export default function Links() {
     setTopics((prev) => prev.map((t) => (t.id === topicId ? { ...t, links: t.links.filter((l) => l.id !== linkId) } : t)))
   }
 
+  const toggleWatched = async (topicId, link) => {
+    const updated = await api.setLinkWatched(link.id, !link.watched)
+    setTopics((prev) => prev.map((t) => {
+      if (t.id !== topicId) return t
+      const links = t.links.map((l) => (l.id === link.id ? updated : l))
+      links.sort((a, b) => Number(!!a.watched) - Number(!!b.watched))
+      return { ...t, links }
+    }))
+  }
+
   const startTopicEdit = (topic) => {
     setTopicTitleDraft(topic.title)
     setTopicCategoryDraft(topic.category_id != null ? String(topic.category_id) : '')
@@ -302,7 +312,7 @@ export default function Links() {
             {topic.links.length > 0 && (
               <ul className="link-list">
                 {topic.links.map((link) => (
-                  <li key={link.id} className="link-item">
+                  <li key={link.id} className={link.watched ? 'link-item link-item-watched' : 'link-item'}>
                     {editingLinkId === link.id ? (
                       <form className="link-composer" onSubmit={(e) => saveLinkEdit(e, topic.id, link.id)}>
                         <input
@@ -324,9 +334,16 @@ export default function Links() {
                       </form>
                     ) : (
                       <>
-                        <a className="link-anchor" href={link.url} target="_blank" rel="noopener noreferrer">
-                          {link.title}
-                        </a>
+                        <label className="link-watched-toggle" title={link.watched ? 'Mark as unwatched' : 'Mark as watched'}>
+                          <input
+                            type="checkbox"
+                            checked={!!link.watched}
+                            onChange={() => toggleWatched(topic.id, link)}
+                          />
+                          <a className="link-anchor" href={link.url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>
+                            {link.title}
+                          </a>
+                        </label>
                         <span className="confirm-row">
                           <button className="icon-btn icon-btn-ghost icon-btn-edit" onClick={() => startLinkEdit(link)} title="Edit link">✎</button>
                           <button className="icon-btn icon-btn-ghost" onClick={() => removeLink(topic.id, link.id)} title="Delete link">✕</button>

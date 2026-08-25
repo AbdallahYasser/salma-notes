@@ -60,6 +60,9 @@ export const api = {
   updateLink: (id, title, url) => request(`/links/${id}`, {
     method: 'PUT', body: JSON.stringify({ title, url }),
   }),
+  setLinkWatched: (id, watched) => request(`/links/${id}/watched`, {
+    method: 'PUT', body: JSON.stringify({ watched }),
+  }),
   deleteLink: (id) => request(`/links/${id}`, { method: 'DELETE' }),
   restoreLink: (id) => request(`/links/${id}/restore`, { method: 'POST' }),
 

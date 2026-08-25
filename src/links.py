@@ -8,7 +8,7 @@ async def list_topics_with_links() -> list[dict]:
         topics_cur = await db.execute("SELECT * FROM topics ORDER BY created_at DESC")
         topics = [dict(r) for r in await topics_cur.fetchall()]
         links_cur = await db.execute(
-            "SELECT * FROM links WHERE deleted_at IS NULL ORDER BY created_at ASC"
+            "SELECT * FROM links WHERE deleted_at IS NULL ORDER BY watched ASC, created_at ASC"
         )
         links = [dict(r) for r in await links_cur.fetchall()]
 
@@ -108,6 +108,13 @@ async def get_link(link_id: int) -> dict | None:
 async def update_link(link_id: int, title: str, url: str) -> dict | None:
     async with get_db() as db:
         await db.execute("UPDATE links SET title = ?, url = ? WHERE id = ?", (title, url, link_id))
+        await db.commit()
+    return await get_link(link_id)
+
+
+async def set_link_watched(link_id: int, watched: bool) -> dict | None:
+    async with get_db() as db:
+        await db.execute("UPDATE links SET watched = ? WHERE id = ?", (int(watched), link_id))
         await db.commit()
     return await get_link(link_id)
 

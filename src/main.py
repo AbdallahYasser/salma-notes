@@ -292,6 +292,17 @@ async def update_link(link_id: int, request: Request, _: bool = Depends(auth.req
     return link
 
 
+@app.put("/api/links/{link_id}/watched")
+async def set_link_watched(link_id: int, request: Request, _: bool = Depends(auth.require_session)):
+    rate_limit("write", request.client.host if request.client else "unknown")
+    body = await request.json()
+    watched = bool(body.get("watched"))
+    link = await links_store.set_link_watched(link_id, watched)
+    if link is None:
+        raise HTTPException(status_code=404, detail="Not found")
+    return link
+
+
 @app.delete("/api/links/{link_id}", status_code=204)
 async def delete_link(link_id: int, request: Request, _: bool = Depends(auth.require_session)):
     rate_limit("write", request.client.host if request.client else "unknown")

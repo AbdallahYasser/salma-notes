@@ -604,6 +604,26 @@ input, textarea, button { font-family: inherit; }
 
 .link-anchor:hover { text-decoration: underline; }
 
+.link-item-watched { opacity: 0.55; }
+
+.link-item-watched .link-anchor { text-decoration: line-through; }
+
+.link-watched-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  cursor: pointer;
+}
+
+.link-watched-toggle input[type='checkbox'] {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
 .link-composer {
   display: flex;
   align-items: center;

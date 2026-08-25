@@ -8,6 +8,30 @@ next). Newest entries on top.
 
 ---
 
+## 2026-08-25 — Watched checkbox on links, watched links sink to the bottom
+
+**Business**: Every saved link (not just movies - any link in any topic)
+now has a checkbox next to it. Ticking it marks the link as watched/done;
+watched links visually fade and get a strikethrough, and drop to the
+bottom of their topic's list so unwatched links stay up top and easy to
+scan - handy for a "Films" topic where you want to see what's left to
+watch at a glance.
+
+**Technical**: `links` table gained a `watched INTEGER NOT NULL DEFAULT 0`
+column (`src/db.py`, same manual `ALTER TABLE` retrofit pattern as prior
+migrations). `list_topics_with_links` now orders links by
+`watched ASC, created_at ASC` so watched links sort last (`src/links.py`).
+New `set_link_watched(link_id, watched)` and route
+`PUT /api/links/{id}/watched` (body `{"watched": bool}`) in `src/main.py`.
+Frontend: new `api.setLinkWatched`; `Links.jsx` wraps each link's checkbox
++ title in a `<label>` (`toggleWatched` re-sorts the topic's links
+client-side after the API call so the UI reorders immediately), with
+`e.stopPropagation()` on the title's anchor so clicking the link text to
+open it doesn't also toggle the checkbox via native label-click
+forwarding. New CSS: `.link-watched-toggle`, `.link-item-watched`.
+
+---
+
 ## 2026-08-22 — Duplicate-link warning, and a Trash for deleted notes/reminders/links
 
 **Business**: Adding a link that's already saved somewhere else on the

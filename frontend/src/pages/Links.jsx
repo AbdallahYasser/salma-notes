@@ -1,6 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import { api } from '../api.js'
 
+function sortByWatched(links) {
+  return [...links].sort((a, b) => Number(!!a.watched) - Number(!!b.watched))
+}
+
 function matches(topic, query) {
   const q = query.toLowerCase()
   if (topic.title.toLowerCase().includes(q)) return true
@@ -192,7 +196,9 @@ export default function Links() {
     if (!title || !url) return
     try {
       const link = await api.createLink(topicId, title, url)
-      setTopics((prev) => prev.map((t) => (t.id === topicId ? { ...t, links: [...t.links, link] } : t)))
+      setTopics((prev) => prev.map((t) => (
+        t.id === topicId ? { ...t, links: sortByWatched([...t.links, link]) } : t
+      )))
       setLinkDrafts((prev) => ({ ...prev, [topicId]: { title: '', url: '' } }))
       setAddingLinkTopicId(null)
       setLinkFormErrors((prev) => ({ ...prev, [topicId]: null }))
@@ -211,8 +217,7 @@ export default function Links() {
     const updated = await api.setLinkWatched(link.id, !link.watched)
     setTopics((prev) => prev.map((t) => {
       if (t.id !== topicId) return t
-      const links = t.links.map((l) => (l.id === link.id ? updated : l))
-      links.sort((a, b) => Number(!!a.watched) - Number(!!b.watched))
+      const links = sortByWatched(t.links.map((l) => (l.id === link.id ? updated : l)))
       return { ...t, links }
     }))
   }

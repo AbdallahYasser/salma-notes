@@ -8,6 +8,28 @@ next). Newest entries on top.
 
 ---
 
+## 2026-08-27 — Fix: new links no longer land below already-watched ones
+
+**Business**: Adding a new link to a topic that already has a watched
+(checked-off) link in it used to drop the new link at the very bottom, below
+the watched one - so unwatched links weren't reliably grouped above watched
+ones like they're supposed to be. New links now correctly land above any
+watched links, keeping the "what's left" list on top and watched items
+sunk to the bottom.
+
+**Technical**: `addLink` in `frontend/src/pages/Links.jsx` appended the new
+link with `[...t.links, link]` without re-sorting, so it could sit after
+links already sorted to the bottom by `toggleWatched`. Added a shared
+`sortByWatched(links)` helper (stable sort, unwatched first) and used it in
+both `addLink` and `toggleWatched` so the list is always re-sorted after
+either action, matching the `watched ASC, created_at ASC` order the backend
+already uses on full reload (`src/links.py`). Duplicate-link detection
+(same URL rejected with a "this link already exists in ..." message) was
+already implemented on 2026-08-22 - confirmed still working, no changes
+needed there.
+
+---
+
 ## 2026-08-25 — Watched checkbox on links, watched links sink to the bottom
 
 **Business**: Every saved link (not just movies - any link in any topic)

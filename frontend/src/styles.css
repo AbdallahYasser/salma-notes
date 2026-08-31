@@ -149,6 +149,12 @@ input, textarea, button { font-family: inherit; }
 
 .identity-chip:hover { border-color: var(--accent); transform: translateY(-1px); }
 
+.identity-chip-active {
+  background: var(--accent);
+  color: var(--accent-ink);
+  border-color: var(--accent);
+}
+
 /* ---------- Inputs & buttons ---------- */
 
 .input {

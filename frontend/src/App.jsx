@@ -42,7 +42,16 @@ export default function App() {
   }
 
   if (authStatus === 'out') {
-    return <Login onSuccess={() => setAuthStatus('in')} />
+    return (
+      <Login
+        names={names}
+        currentIdentity={identity}
+        onSuccess={(name) => {
+          chooseIdentity(name)
+          setAuthStatus('in')
+        }}
+      />
+    )
   }
 
   if (!identity) {

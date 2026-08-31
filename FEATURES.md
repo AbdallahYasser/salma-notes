@@ -8,6 +8,29 @@ next). Newest entries on top.
 
 ---
 
+## 2026-09-01 — Pick who you are on the login screen itself
+
+**Business**: Logging in used to be two steps: enter the shared password,
+then on a separate screen pick "Abdullah" or "Salma". Now both happen on
+one screen - pick your name and enter the password together. On a device
+that's already been used before, its last name is pre-selected so you can
+usually just type the password and hit Enter. The separate "who's this?"
+screen still appears in the one other case it's needed: using "Switch who
+you are" while already logged in.
+
+**Technical**: `Login.jsx` now takes `names`/`currentIdentity` props and
+renders the same identity-chip UI `IdentityGate.jsx` uses, alongside the
+password field; `onSuccess(identity)` replaces the old no-arg callback.
+`App.jsx` passes `names`/`identity` into `Login` and calls
+`chooseIdentity(name)` from its `onSuccess`, skipping the `IdentityGate`
+screen entirely for a fresh login. `IdentityGate.jsx` is unchanged and
+still renders for the `!identity` case reached via "Switch who you are"
+(`Layout.jsx`'s `onSwitchIdentity` clears in-memory identity without
+touching the session). New `.identity-chip-active` style in `styles.css`
+for the selected chip (mirrors the existing `.chip-active`).
+
+---
+
 ## 2026-08-31 — Every note now shows its actual date; new Memory page with photos
 
 **Business**: Notes, reminders, and replies now show the actual calendar

@@ -1,7 +1,8 @@
 async function request(path, options = {}) {
+  const isFormData = options.body instanceof FormData
   const res = await fetch(`/api${path}`, {
     credentials: 'include',
-    headers: options.body ? { 'Content-Type': 'application/json' } : undefined,
+    headers: options.body && !isFormData ? { 'Content-Type': 'application/json' } : undefined,
     ...options,
   })
   if (res.status === 401) {
@@ -67,4 +68,18 @@ export const api = {
   restoreLink: (id) => request(`/links/${id}/restore`, { method: 'POST' }),
 
   getTrash: () => request('/trash'),
+
+  listMemories: () => request('/memories'),
+  createMemory: (author, content, photoFile) => {
+    const form = new FormData()
+    form.append('author', author)
+    form.append('content', content)
+    if (photoFile) form.append('photo', photoFile)
+    return request('/memories', { method: 'POST', body: form })
+  },
+  updateMemory: (id, content) => request(`/memories/${id}`, {
+    method: 'PUT', body: JSON.stringify({ content }),
+  }),
+  deleteMemory: (id) => request(`/memories/${id}`, { method: 'DELETE' }),
+  restoreMemory: (id) => request(`/memories/${id}/restore`, { method: 'POST' }),
 }

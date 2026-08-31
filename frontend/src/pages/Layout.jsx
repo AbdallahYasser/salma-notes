@@ -17,6 +17,7 @@ export default function Layout({ identity, onSwitchIdentity, onLogout }) {
         </div>
         <nav className="page-nav">
           <NavLink to="/" className={navClass} end>Notes</NavLink>
+          <NavLink to="/memory" className={navClass}>Memory</NavLink>
           <NavLink to="/links" className={navClass}>Links</NavLink>
           <NavLink to="/trash" className={navClass}>Trash</NavLink>
         </nav>

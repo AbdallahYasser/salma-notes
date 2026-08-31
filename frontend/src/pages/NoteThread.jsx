@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { api } from '../api.js'
 import { colorFor } from '../colorFor.js'
-import { formatWhen } from '../formatWhen.js'
+import { formatWhen, formatDate } from '../formatWhen.js'
 
 function reminderStatus(remindAt) {
   if (!remindAt) return null
@@ -97,6 +97,8 @@ export default function NoteThread({ note, replies, identity, onToggleDone, onDe
           <span className="note-author">{note.author}</span>
           <span className="note-dot">·</span>
           <span className="note-time">{formatWhen(note.created_at)}</span>
+          <span className="note-dot">·</span>
+          <span className="note-date">{formatDate(note.created_at)}</span>
           {status && <span className={`badge badge-${status.tone}`}>{status.label}</span>}
         </div>
         {editing ? (
@@ -137,6 +139,8 @@ export default function NoteThread({ note, replies, identity, onToggleDone, onDe
                     <span className="note-author">{reply.author}</span>
                     <span className="note-dot">·</span>
                     <span className="note-time">{formatWhen(reply.created_at)}</span>
+                    <span className="note-dot">·</span>
+                    <span className="note-date">{formatDate(reply.created_at)}</span>
                   </div>
                   {replyEditId === reply.id ? (
                     <form className="reply-composer" onSubmit={saveReplyEdit}>

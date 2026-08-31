@@ -5,6 +5,7 @@ import { formatWhen } from '../formatWhen.js'
 export default function Trash() {
   const [notes, setNotes] = useState([])
   const [links, setLinks] = useState([])
+  const [memories, setMemories] = useState([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -12,6 +13,7 @@ export default function Trash() {
       .then((data) => {
         setNotes(data.notes)
         setLinks(data.links)
+        setMemories(data.memories || [])
       })
       .finally(() => setLoading(false))
   }, [])
@@ -26,7 +28,12 @@ export default function Trash() {
     setLinks((prev) => prev.filter((l) => l.id !== id))
   }
 
-  const isEmpty = notes.length === 0 && links.length === 0
+  const restoreMemory = async (id) => {
+    await api.restoreMemory(id)
+    setMemories((prev) => prev.filter((m) => m.id !== id))
+  }
+
+  const isEmpty = notes.length === 0 && links.length === 0 && memories.length === 0
 
   return (
     <>
@@ -79,6 +86,28 @@ export default function Trash() {
                       <p className="trash-item-url">{link.url}</p>
                     </div>
                     <button className="text-btn" onClick={() => restoreLink(link.id)}>Restore</button>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+
+          {memories.length > 0 && (
+            <section className="trash-section">
+              <h3 className="trash-section-title">Memories</h3>
+              <ul className="trash-list">
+                {memories.map((memory) => (
+                  <li key={memory.id} className="trash-item">
+                    <div className="trash-item-body">
+                      <div className="trash-item-meta">
+                        <span className="trash-kind">{memory.author}</span>
+                        <span className="note-dot">·</span>
+                        <span className="note-time">deleted {formatWhen(memory.deleted_at)}</span>
+                      </div>
+                      {memory.photo_url && <img className="trash-item-photo" src={memory.photo_url} alt="" />}
+                      {memory.content && <p className="note-content">{memory.content}</p>}
+                    </div>
+                    <button className="text-btn" onClick={() => restoreMemory(memory.id)}>Restore</button>
                   </li>
                 ))}
               </ul>

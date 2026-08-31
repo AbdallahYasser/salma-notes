@@ -8,6 +8,62 @@ next). Newest entries on top.
 
 ---
 
+## 2026-08-31 — Every note now shows its actual date; new Memory page with photos
+
+**Business**: Notes, reminders, and replies now show the actual calendar
+date they were written (e.g. "Aug 31, 2026") next to the existing "2h ago"
+style timestamp, instead of only showing a date once something is a week
+old. Also new: a "Memory" page (next to Notes/Links/Trash) for writing a
+small note plus an optional photo each time you two go out or want to
+remember something - a lightweight shared photo journal. Deleting a
+memory sends it to Trash for 30 days like everything else, with its photo
+restorable along with it.
+
+Photos aren't stored on the app's own server - they live in a separate
+Cloudflare object storage bucket, so losing or rebuilding the EC2 box the
+app runs on can't take the photos down with it. A photo is only ever
+viewable by someone logged into Salma Notes (the app fetches it from
+storage on your behalf) - there's no public link to leak. Photo uploads
+are disabled with a clear message until that storage bucket is connected
+(see `migration-secrets.local.md`); text-only memories work today.
+
+**Technical**: New `memories` table (`author`, `content`, `photo_key`,
+`created_at`/`updated_at`/`deleted_at` - same soft-delete/trash pattern as
+notes and links) in `src/db.py`. New `src/memories.py` (CRUD + trash
+list/restore, same shape as `src/notes.py`); its `list_deleted_memories`
+purges rows past the 30-day retention window *and* deletes their R2
+objects so storage doesn't grow unbounded.
+
+New `src/storage.py` wraps Cloudflare R2 via `boto3`'s S3-compatible
+client (`R2_ACCOUNT_ID`/`R2_ACCESS_KEY_ID`/`R2_SECRET_ACCESS_KEY`/
+`R2_BUCKET` env vars, added to `src/config.py` - all optional, so the app
+still boots and text-only memories still work if unset). Routes in
+`src/main.py`: `GET/POST /api/memories`, `PUT`/`DELETE
+/api/memories/{id}`, `POST /api/memories/{id}/restore`, and `GET
+/api/memories/{id}/photo` - the last one is the only place a photo is
+ever served, gated by the normal session-cookie auth
+(`auth.require_session`) and streamed through the backend rather than
+exposing R2's own URL, so a photo link is useless without being logged
+in. `POST /api/memories` accepts multipart form data (`author`, `content`,
+optional `photo` file; validated to JPEG/PNG/WEBP/GIF, 15MB max) via
+FastAPI's `UploadFile`/`Form`/`File`. `GET /api/trash` now also returns
+`memories`. Added `boto3==1.35.90` to `requirements.txt`.
+
+Frontend: new `frontend/src/pages/Memory.jsx` (composer with a file input
++ textarea, list of memory cards, inline edit/delete - same interaction
+patterns as `Notes.jsx`/`NoteThread.jsx`), routed at `/memory` in
+`App.jsx` and linked in `Layout.jsx`'s nav. `api.js` gained
+`listMemories`/`createMemory`/`updateMemory`/`deleteMemory`/
+`restoreMemory`; `createMemory` posts a `FormData` body, so the shared
+`request()` helper was tweaked to skip setting `Content-Type` when the
+body is `FormData` (the browser sets its own multipart boundary header).
+`Trash.jsx` gained a "Memories" section mirroring the notes/links ones.
+New `formatDate(iso)` in `formatWhen.js` (absolute date, vs. the existing
+`formatWhen`'s relative-then-date behavior) - used in both `NoteThread.jsx`
+(next to every note/reply's existing relative timestamp) and `Memory.jsx`.
+
+---
+
 ## 2026-08-27 — Fix: new links no longer land below already-watched ones
 
 **Business**: Adding a new link to a topic that already has a watched

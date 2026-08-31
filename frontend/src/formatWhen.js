@@ -10,3 +10,8 @@ export function formatWhen(iso) {
   if (days < 7) return `${days}d ago`
   return then.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
 }
+
+export function formatDate(iso) {
+  const then = new Date(iso.replace(' ', 'T') + 'Z')
+  return then.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
+}

@@ -3,6 +3,7 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 import { api } from './api.js'
 import Login from './pages/Login.jsx'
 import Notes from './pages/Notes.jsx'
+import Memory from './pages/Memory.jsx'
 import Links from './pages/Links.jsx'
 import Trash from './pages/Trash.jsx'
 import Layout from './pages/Layout.jsx'
@@ -54,6 +55,7 @@ export default function App() {
         element={<Layout identity={identity} onSwitchIdentity={() => setIdentity('')} onLogout={handleLogout} />}
       >
         <Route path="/" element={<Notes identity={identity} names={names} />} />
+        <Route path="/memory" element={<Memory identity={identity} />} />
         <Route path="/links" element={<Links />} />
         <Route path="/trash" element={<Trash />} />
       </Route>

@@ -7,16 +7,21 @@ localStorage). Deliberately minimal: this is meant to grow more pages later,
 not to become an ERP.
 """
 import logging
+import mimetypes
+import uuid
 from pathlib import Path
 
 from dotenv import load_dotenv
 load_dotenv()
 
-from fastapi import Depends, FastAPI, HTTPException, Request, Response
+from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, Response, UploadFile
 from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from src import auth, config, links as links_store, notes as notes_store, settings as app_settings
+from src import (
+    auth, config, links as links_store, memories as memories_store, notes as notes_store,
+    settings as app_settings, storage,
+)
 from src.db import apply_migrations
 from src.middleware import rate_limit
 
@@ -321,13 +326,110 @@ async def restore_link(link_id: int, request: Request, _: bool = Depends(auth.re
 
 
 # ---------------------------------------------------------------------------
-# Trash (soft-deleted notes, reminders, and links - kept 30 days)
+# Memories (a small note + optional photo, e.g. from a night out together)
+# ---------------------------------------------------------------------------
+_ALLOWED_PHOTO_TYPES = {"image/jpeg", "image/png", "image/webp", "image/gif"}
+_MAX_PHOTO_BYTES = 15 * 1024 * 1024
+
+
+def _memory_out(row: dict) -> dict:
+    row = dict(row)
+    photo_key = row.pop("photo_key", None)
+    row["photo_url"] = f"/api/memories/{row['id']}/photo" if photo_key else None
+    return row
+
+
+@app.get("/api/memories")
+async def list_memories(_: bool = Depends(auth.require_session)):
+    rows = await memories_store.list_memories()
+    return {"rows": [_memory_out(r) for r in rows]}
+
+
+@app.post("/api/memories", status_code=201)
+async def create_memory(
+    request: Request,
+    author: str = Form(""),
+    content: str = Form(""),
+    photo: UploadFile | None = File(None),
+    _: bool = Depends(auth.require_session),
+):
+    rate_limit("write", request.client.host if request.client else "unknown")
+    text = content.strip()
+    has_photo = photo is not None and photo.filename
+    if not text and not has_photo:
+        raise HTTPException(status_code=400, detail="Write something or add a photo")
+    resolved_author = author.strip() or (config.NAMES[0] if config.NAMES else "Someone")
+
+    photo_key = None
+    if has_photo:
+        if photo.content_type not in _ALLOWED_PHOTO_TYPES:
+            raise HTTPException(status_code=400, detail="Photo must be a JPEG, PNG, WEBP, or GIF image")
+        data = await photo.read()
+        if len(data) > _MAX_PHOTO_BYTES:
+            raise HTTPException(status_code=400, detail="Photo is too large (max 15MB)")
+        ext = mimetypes.guess_extension(photo.content_type) or ""
+        photo_key = f"memories/{uuid.uuid4().hex}{ext}"
+        try:
+            await storage.upload(photo_key, data, photo.content_type)
+        except RuntimeError as exc:
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+    memory_id = await memories_store.create_memory(resolved_author, text, photo_key)
+    return _memory_out(await memories_store.get_memory(memory_id))
+
+
+@app.put("/api/memories/{memory_id}")
+async def update_memory(memory_id: int, request: Request, _: bool = Depends(auth.require_session)):
+    rate_limit("write", request.client.host if request.client else "unknown")
+    body = await request.json()
+    content = (body.get("content") or "").strip()
+    if not content:
+        raise HTTPException(status_code=400, detail="Memory text is required")
+    memory = await memories_store.update_memory(memory_id, content)
+    if memory is None:
+        raise HTTPException(status_code=404, detail="Not found")
+    return _memory_out(memory)
+
+
+@app.delete("/api/memories/{memory_id}", status_code=204)
+async def delete_memory(memory_id: int, request: Request, _: bool = Depends(auth.require_session)):
+    rate_limit("write", request.client.host if request.client else "unknown")
+    if not await memories_store.delete_memory(memory_id):
+        raise HTTPException(status_code=404, detail="Not found")
+    return Response(status_code=204)
+
+
+@app.post("/api/memories/{memory_id}/restore")
+async def restore_memory(memory_id: int, request: Request, _: bool = Depends(auth.require_session)):
+    rate_limit("write", request.client.host if request.client else "unknown")
+    memory = await memories_store.restore_memory(memory_id)
+    if memory is None:
+        raise HTTPException(status_code=404, detail="Not found")
+    return _memory_out(memory)
+
+
+@app.get("/api/memories/{memory_id}/photo")
+async def get_memory_photo(memory_id: int, _: bool = Depends(auth.require_session)):
+    memory = await memories_store.get_memory(memory_id)
+    if memory is None or not memory.get("photo_key"):
+        raise HTTPException(status_code=404, detail="Not found")
+    try:
+        data, content_type = await storage.download(memory["photo_key"])
+    except Exception as exc:
+        logger.warning("Failed to load memory photo %s: %s", memory_id, exc)
+        raise HTTPException(status_code=502, detail="Could not load photo") from exc
+    return Response(content=data, media_type=content_type, headers={"Cache-Control": "private, max-age=86400"})
+
+
+# ---------------------------------------------------------------------------
+# Trash (soft-deleted notes, reminders, links, and memories - kept 30 days)
 # ---------------------------------------------------------------------------
 @app.get("/api/trash")
 async def get_trash(_: bool = Depends(auth.require_session)):
     return {
         "notes": await notes_store.list_deleted_notes(),
         "links": await links_store.list_deleted_links(),
+        "memories": [_memory_out(m) for m in await memories_store.list_deleted_memories()],
     }
 
 

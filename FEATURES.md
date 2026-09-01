@@ -8,6 +8,46 @@ next). Newest entries on top.
 
 ---
 
+## 2026-09-01 — Memory-page photos now really upload (switched off Cloudflare R2, onto Google Drive)
+
+**Business**: The "Photo storage isn't set up yet" error on the Memory
+page is gone - uploading a photo now actually works. Cloudflare R2 (the
+original plan) turned out to need a billing/card activation step that
+isn't something to do without asking first, so this switches the photo
+backend to Google Drive instead, which needed no card at all. The privacy
+design is unchanged: a photo is only ever visible to someone logged into
+Salma Notes - there's still no public link, Drive or otherwise.
+
+**Technical**: Rewrote `src/storage.py` twice in the same session -
+first to a Google Cloud *service account* (free, no billing), which
+turned out to be a dead end: Google flatly rejects any upload a service
+account makes into a personal "My Drive" folder with
+`storageQuotaExceeded`, because service accounts carry zero storage quota
+of their own and the usual workarounds (Shared Drives, domain-wide
+delegation) are Workspace-only, not available on a personal Gmail
+account. Landed on real OAuth as the account owner instead: a Google
+Cloud project (`salma-notes-507304`) with the Drive API enabled, an OAuth
+consent screen (External, scope `drive.file` - only files this app
+creates, nothing else in the Drive), and a Web-application OAuth client.
+A one-time browser consent (completed this session) produced a refresh
+token; `src/storage.py` now exchanges it for a fresh access token before
+each Drive API call via `google.oauth2.credentials.Credentials`, so
+uploaded files count against the human account's own Drive quota. Config
+swapped from `R2_*` to `GOOGLE_OAUTH_CLIENT_ID`/
+`GOOGLE_OAUTH_CLIENT_SECRET`/`GOOGLE_OAUTH_REFRESH_TOKEN`/
+`GOOGLE_DRIVE_FOLDER_ID` in `src/config.py`; `requirements.txt` swapped
+`boto3` for `google-auth`+`requests`. `main.py`'s `create_memory` now
+takes the Drive file id `storage.upload()` returns as the `photo_key`
+(previously a pre-generated R2 object key). New unauthenticated `GET
+/privacy` route in `main.py` - Google's OAuth consent screen requires a
+privacy policy link before it will let the app leave "Testing" publishing
+status (Testing-mode refresh tokens expire in 7 days; this is what makes
+today's token long-lived instead). See
+`migration-secrets.local.md` for the full setup trail and current
+publishing-status caveat.
+
+---
+
 ## 2026-09-01 — Pick who you are on the login screen itself
 
 **Business**: Logging in used to be two steps: enter the shared password,

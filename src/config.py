@@ -7,13 +7,15 @@ NAMES = [n.strip() for n in os.environ.get("NAMES", "Me,Friend").split(",") if n
 LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO")
 SESSION_DAYS = int(os.environ.get("SESSION_DAYS", "180"))
 
-# Cloudflare R2 (S3-compatible) storage for Memory-page photos. Optional -
-# if unset, text-only memories still work but photo uploads fail with a
-# clear error instead of the app crashing at startup. See src/storage.py.
-R2_ACCOUNT_ID = os.environ.get("R2_ACCOUNT_ID")
-R2_ACCESS_KEY_ID = os.environ.get("R2_ACCESS_KEY_ID")
-R2_SECRET_ACCESS_KEY = os.environ.get("R2_SECRET_ACCESS_KEY")
-R2_BUCKET = os.environ.get("R2_BUCKET", "salma-notes-memories")
+# Google Drive (OAuth, as the account owner) storage for Memory-page
+# photos. Optional - if unset, text-only memories still work but photo
+# uploads fail with a clear error instead of the app crashing at startup.
+# See src/storage.py for why this is OAuth-as-owner rather than a service
+# account (service accounts can't write to personal Drive storage).
+GOOGLE_OAUTH_CLIENT_ID = os.environ.get("GOOGLE_OAUTH_CLIENT_ID")
+GOOGLE_OAUTH_CLIENT_SECRET = os.environ.get("GOOGLE_OAUTH_CLIENT_SECRET")
+GOOGLE_OAUTH_REFRESH_TOKEN = os.environ.get("GOOGLE_OAUTH_REFRESH_TOKEN")
+GOOGLE_DRIVE_FOLDER_ID = os.environ.get("GOOGLE_DRIVE_FOLDER_ID")
 
 if not SECRET_KEY:
     raise RuntimeError("SECRET_KEY environment variable must be set")

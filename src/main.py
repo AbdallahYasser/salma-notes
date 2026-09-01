@@ -52,6 +52,28 @@ async def health():
     return {"ok": True}
 
 
+@app.get("/privacy", response_class=Response)
+async def privacy_policy():
+    """Unauthenticated static page - required by Google's OAuth consent
+    screen for the Drive integration backing Memory-page photo uploads
+    (see src/storage.py). Two people, no data shared with anyone else."""
+    html = """<!doctype html><html><head><title>Salma Notes - Privacy</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1"></head>
+    <body style="font-family: system-ui, sans-serif; max-width: 640px; margin: 40px auto; padding: 0 16px; line-height: 1.6;">
+    <h1>Privacy</h1>
+    <p>Salma Notes is a private notepad shared between two people. It is not
+    a public product and collects no data from anyone else.</p>
+    <p>Notes, reminders, links, and memory photos are stored only to provide
+    the app's own features to its two users, and are never sold, shared, or
+    used for advertising.</p>
+    <p>Memory-page photos are stored in a personal Google Drive folder via
+    the Google Drive API, solely so the app can save and display them back
+    to its two users. The app does not access any other files in that
+    Drive account.</p>
+    </body></html>"""
+    return Response(content=html, media_type="text/html")
+
+
 @app.get("/api/config")
 async def api_config():
     return {"names": config.NAMES}
@@ -368,9 +390,9 @@ async def create_memory(
         if len(data) > _MAX_PHOTO_BYTES:
             raise HTTPException(status_code=400, detail="Photo is too large (max 15MB)")
         ext = mimetypes.guess_extension(photo.content_type) or ""
-        photo_key = f"memories/{uuid.uuid4().hex}{ext}"
+        name_hint = f"{uuid.uuid4().hex}{ext}"
         try:
-            await storage.upload(photo_key, data, photo.content_type)
+            photo_key = await storage.upload(name_hint, data, photo.content_type)
         except RuntimeError as exc:
             raise HTTPException(status_code=503, detail=str(exc)) from exc
 

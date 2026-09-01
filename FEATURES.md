@@ -8,6 +8,23 @@ next). Newest entries on top.
 
 ---
 
+## 2026-09-01 — Fix: memory photos were getting cropped
+
+**Business**: Photos on the Memory page were being cropped to fill a
+fixed-ish box instead of showing the whole picture - a portrait photo,
+for example, would have its top and bottom cut off. Photos now always
+show in full, just scaled down to fit if they're large.
+
+**Technical**: `.memory-photo` in `styles.css` used `width: 100%` +
+`object-fit: cover`, which crops to fill the box whenever the image's
+aspect ratio doesn't match the forced width/max-height box (almost
+always). Switched to `max-width: 100%; max-height: 420px; width: auto;
+height: auto` with no `object-fit`, so the image only ever scales down
+uniformly to fit, never crops. Verified against a real portrait photo
+(1×1.7 aspect) locally before deploying.
+
+---
+
 ## 2026-09-01 — Memory-page photos now really upload (switched off Cloudflare R2, onto Google Drive)
 
 **Business**: The "Photo storage isn't set up yet" error on the Memory

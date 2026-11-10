@@ -1,0 +1,121 @@
+name: Deploy
+
+# Replaces Coolify's GitHub webhook + its pre/post-deployment Telegram commands,
+# both of which died when Coolify was removed on 2026-11-10.
+#
+# Why the image is built HERE and not on the server: the box is a t3.micro with
+# 909 MB of RAM and ~650 MB already in use by the four live apps. Building
+# video-summarizer-bot alone needs ~621 MB, which would risk OOM-killing a live
+# site. GitHub builds it; the box only pulls and restarts.
+#
+# The SSH key in DEPLOY_SSH_KEY cannot open a shell on the box -- it is pinned
+# to a forced command (~/stack/ci-deploy-wrapper.sh) that only accepts
+# "deploy <app> ghcr.io/<owner>/<app>:<40-hex-sha>".
+#
+# Telegram: this workflow sends "Deploy started"; ~/stack/deploy.sh on the box
+# sends "Deploy finished" or, if the healthcheck fails, rolls back to the
+# previous image and says so.
+#
+# Pause without editing this file:
+#   gh variable set DEPLOY_ENABLED --body false -R AbdallahYasser/salma-notes
+
+on:
+  push:
+    branches: [main]
+    # Don't rebuild and restart a live site for a docs-only commit.
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - '.gitignore'
+      - 'monitoring/**'
+  workflow_dispatch: {}
+
+# Never let two deploys of the same app overlap -- they both move the
+# :current tag and would race.
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  APP: salma-notes
+  BOX: 13.62.239.185
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    if: vars.DEPLOY_ENABLED != 'false'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Telegram — deploy started
+        env:
+          ALERT_BOT_TOKEN: ${{ secrets.ALERT_BOT_TOKEN }}
+          ALERT_CHAT_ID: ${{ secrets.ALERT_CHAT_ID }}
+        run: |
+          SHORT="${GITHUB_SHA:0:7}"
+          MSG="⚡ <b>${APP}</b>%0ADeploy started... (${SHORT})%0A$(git log -1 --pretty=%s | head -c 120)"
+          curl -s -m 20 -X POST "https://api.telegram.org/bot${ALERT_BOT_TOKEN}/sendMessage" \
+            -d chat_id="${ALERT_CHAT_ID}" -d parse_mode=HTML -d "text=${MSG}" > /dev/null
+
+      # GHCR requires a lowercase owner; the GitHub account is "AbdallahYasser".
+      - name: Compute image ref
+        id: img
+        run: |
+          OWNER="$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')"
+          echo "ref=ghcr.io/${OWNER}/${APP}:${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          # linux/amd64 only: the box is x86_64 (t3.micro), so building arm64
+          # would double build time for an image nothing can run.
+          platforms: linux/amd64
+          tags: ${{ steps.img.outputs.ref }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          provenance: false
+
+      - name: Deploy on the box
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          IMAGE: ${{ steps.img.outputs.ref }}
+        run: |
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/ci && chmod 600 ~/.ssh/ci
+          # Host key pinned so a hijacked IP can't collect the deploy key.
+          echo "13.62.239.185 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAII86GAvSs3JezYiXouyon7sByo7PUUoYYBq0XdxzuIXA" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+          # The GHCR pull token goes over stdin and is never written to the box.
+          echo "$GHCR_TOKEN" | ssh -i ~/.ssh/ci -o IdentitiesOnly=yes \
+            -o UserKnownHostsFile=~/.ssh/known_hosts \
+            -o ConnectTimeout=20 -o ServerAliveInterval=15 \
+            ubuntu@"${BOX}" "deploy ${APP} ${IMAGE}"
+
+      # deploy.sh already Telegrams success and rollback. This only covers the
+      # case where the job itself broke (build failed, box unreachable), where
+      # nothing on the box ever ran and so nothing else would tell you.
+      - name: Telegram — workflow failed before the box reported
+        if: failure()
+        env:
+          ALERT_BOT_TOKEN: ${{ secrets.ALERT_BOT_TOKEN }}
+          ALERT_CHAT_ID: ${{ secrets.ALERT_CHAT_ID }}
+        run: |
+          SHORT="${GITHUB_SHA:0:7}"
+          MSG="❌ <b>${APP}</b>%0ADeploy pipeline FAILED (${SHORT})%0ABuild or connection problem — the running site was NOT changed.%0A${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          curl -s -m 20 -X POST "https://api.telegram.org/bot${ALERT_BOT_TOKEN}/sendMessage" \
+            -d chat_id="${ALERT_CHAT_ID}" -d parse_mode=HTML -d "text=${MSG}" > /dev/null

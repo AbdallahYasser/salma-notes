@@ -47,7 +47,11 @@ async def _startup():
 # ---------------------------------------------------------------------------
 # Health (unauthenticated)
 # ---------------------------------------------------------------------------
-@app.get("/api/health")
+# HEAD as well as GET: uptime monitors send HEAD by default, and FastAPI's
+# @app.get registers GET *only* — unlike plain Starlette it does not add HEAD.
+# Without this a HEAD request falls through to the SPA static handler and
+# returns 404, so the monitor reports the site down while it is healthy.
+@app.api_route("/api/health", methods=["GET", "HEAD"])
 async def health():
     return {"ok": True}
 

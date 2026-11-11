@@ -7,6 +7,9 @@ RUN npm run build
 
 FROM python:3.12-slim
 WORKDIR /app
+# curl is not optional: it backs the HEALTHCHECK below, and ~/stack/deploy.sh
+# on the server runs `docker exec <app> curl .../api/health` after every deploy
+# to decide whether to keep the new image or roll back to the previous one.
 RUN apt-get update && apt-get install -y --no-install-recommends curl gosu \
     && rm -rf /var/lib/apt/lists/*
 RUN useradd --create-home --uid 1000 appuser
